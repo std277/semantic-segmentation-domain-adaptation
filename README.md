@@ -3,24 +3,19 @@ Real-time Domain Adaptation in Semantic Segmentation
 
 
 
+
+
+
+
+
+
+
 ## Model initialization
 
 In the following link you can find the pretrained weights for DeepLab.
 
 **DeepLab petrained weights**: https://drive.google.com/file/d/1ZX0UCXvJwqd2uBGCX7LI2n-DfMg3t74v/view?usp=sharing
 
-
-## Datasets
-
-To download the dataset use the following download links.
-
-**Cityscapes**: https://drive.google.com/file/d/1Qb4UrNsjvlU-wEsR9d7rckB0YS_LXgb2/view?usp=sharing
-
-**GTA5**: https://drive.google.com/file/d/1xYxlcMR2WFCpayNrW2-Rb7N-950vvl23/view?usp=sharing
-
-## GTA5: label color mapping
-
-Plese refer to this link to convert GTA5 labels in the same format of Cityscapes: https://github.com/sarrrrry/PyTorchDL_GTA5/blob/master/pytorchdl_gta5/labels.py
 
 ## FLOPs and parameters
 
