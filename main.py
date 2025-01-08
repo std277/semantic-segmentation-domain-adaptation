@@ -1,16 +1,10 @@
 import argparse
 import os
 
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-
 import numpy as np
 
 import torch
 from torch.utils.data import DataLoader
-
-from torchvision import transforms as T
-from torchvision.utils import make_grid
 
 from albumentations import (
     HorizontalFlip, VerticalFlip, RandomRotate90, ShiftScaleRotate, RandomBrightnessContrast, Resize, Normalize, Compose
@@ -18,6 +12,7 @@ from albumentations import (
 from albumentations.pytorch import ToTensorV2
 
 from datasets import LoveDADataset, LoveDADatasetLabel
+from utils.plot import *
 
 
 def get_device():
@@ -57,78 +52,6 @@ def dataset_preprocessing(domain, batch_size):
     return trainloader, valloader, testloader
 
 
-def overlap_mask_on_image(image, mask):
-    pass
-
-def plot_image(image, mask=None, alpha=0.3, title=None, show=True):
-    plt.figure()
-
-    if title is not None:
-        plt.title(title)
-
-    np_image = image.numpy()
-    plt.imshow(np.transpose(np_image, (1, 2, 0)))
-
-    if mask is not None:
-        class_color = {
-            LoveDADatasetLabel.BACKGROUND: (0.0, 0.0, 1.0),     # Background - Blue
-            LoveDADatasetLabel.BUILDING: (0.0, 1.0, 0.0),       # Building - Green
-            LoveDADatasetLabel.ROAD: (1.0, 0.0, 0.0),           # Road - Red
-            LoveDADatasetLabel.WATER: (0.0, 1.0, 1.0),          # Water - Cyan
-            LoveDADatasetLabel.BARREN: (1.0, 1.0, 0.0),         # Barren - Yellow
-            LoveDADatasetLabel.FOREST: (1.0, 0.0, 1.0),         # Forest - Magenta
-            LoveDADatasetLabel.AGRICULTURE: (0.5, 0.5, 0.5),    # Agriculture - Gray
-        }
-
-        np_mask = mask.numpy()
-        np_mask = np.repeat(np_mask[:, :, np.newaxis], 3, axis=2)
-
-        np_image = np.transpose(np_image, (1, 2, 0))
-
-        np_colored_image = np_image.copy()
-        for label in LoveDADatasetLabel:
-            np_colored_image = np.where(np_mask == label.value, class_color[label], np_colored_image)
-        
-        plt.imshow(np_colored_image, alpha=alpha)
-
-        patches = [mpatches.Patch(color=class_color[label], label=label.name) for label in LoveDADatasetLabel]
-        plt.legend(handles=patches, bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
-
-    plt.axis("off")
-    
-
-
-    if show:
-        plt.tight_layout()
-        plt.show()
-
-
-def plot_batch():
-    pass
-
-
-def inspect_dataset(trainloader, valloader, testloader):
-    def imshow(title, img):
-        # img = img / 2 + 0.5
-        npimg = img.numpy()
-        plt.figure()
-        plt.title(title)
-        plt.imshow(np.transpose(npimg, (1, 2, 0)))
-        plt.axis("off")
-
-
-    for type, loader in zip(("Train", "Val", "Test"), (trainloader, valloader, testloader)):
-        it = iter(loader)
-        images, masks = next(it)
-
-        # Overlap faded mask on image
-
-        imshow(title=f"{type} sample batch", img=make_grid(images))
-
-    plt.tight_layout()
-    plt.show()
-
-
 
 def main(args):
     torch.manual_seed(args.seed)
@@ -146,12 +69,7 @@ def main(args):
 
     # inspect_dataset(trainloader, valloader, testloader)
 
-    trainit = iter(trainloader)
-    images, masks = next(trainit)
-
-    for image, mask in zip(images, masks):
-        plot_image(image, mask, title="Urban train image", show=False)
-    plt.show()
+    
 
 
 
