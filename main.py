@@ -2,6 +2,7 @@ import argparse
 import os
 
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 
 import numpy as np
 
@@ -16,7 +17,7 @@ from albumentations import (
 )
 from albumentations.pytorch import ToTensorV2
 
-from datasets import LoveDADataset
+from datasets import LoveDADataset, LoveDADatasetLabel
 
 
 def get_device():
@@ -59,7 +60,7 @@ def dataset_preprocessing(domain, batch_size):
 def overlap_mask_on_image(image, mask):
     pass
 
-def plot_image(image, mask=None, title=None, show=True):
+def plot_image(image, mask=None, alpha=0.3, title=None, show=True):
     plt.figure()
 
     if title is not None:
@@ -69,13 +70,36 @@ def plot_image(image, mask=None, title=None, show=True):
     plt.imshow(np.transpose(np_image, (1, 2, 0)))
 
     if mask is not None:
+        class_color = {
+            LoveDADatasetLabel.BACKGROUND: (0.0, 0.0, 1.0),     # Background - Blue
+            LoveDADatasetLabel.BUILDING: (0.0, 1.0, 0.0),       # Building - Green
+            LoveDADatasetLabel.ROAD: (1.0, 0.0, 0.0),           # Road - Red
+            LoveDADatasetLabel.WATER: (0.0, 1.0, 1.0),          # Water - Cyan
+            LoveDADatasetLabel.BARREN: (1.0, 1.0, 0.0),         # Barren - Yellow
+            LoveDADatasetLabel.FOREST: (1.0, 0.0, 1.0),         # Forest - Magenta
+            LoveDADatasetLabel.AGRICULTURE: (0.5, 0.5, 0.5),    # Agriculture - Gray
+        }
+
         np_mask = mask.numpy()
+        np_mask = np.repeat(np_mask[:, :, np.newaxis], 3, axis=2)
+
+        np_image = np.transpose(np_image, (1, 2, 0))
+
+        np_colored_image = np_image.copy()
+        for label in LoveDADatasetLabel:
+            np_colored_image = np.where(np_mask == label.value, class_color[label], np_colored_image)
         
-        plt.imshow(np_mask, cmap='jet', alpha=0.2)
+        plt.imshow(np_colored_image, alpha=alpha)
+
+        patches = [mpatches.Patch(color=class_color[label], label=label.name) for label in LoveDADatasetLabel]
+        plt.legend(handles=patches, bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
 
     plt.axis("off")
+    
+
 
     if show:
+        plt.tight_layout()
         plt.show()
 
 
@@ -101,6 +125,7 @@ def inspect_dataset(trainloader, valloader, testloader):
 
         imshow(title=f"{type} sample batch", img=make_grid(images))
 
+    plt.tight_layout()
     plt.show()
 
 

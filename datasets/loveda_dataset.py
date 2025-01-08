@@ -1,12 +1,22 @@
 import os
 import cv2
 
+from enum import Enum
+
 import torch
 from torch.utils.data import Dataset
 
 import torchvision
 from torchvision.transforms import functional as F
 
+class LoveDADatasetLabel(Enum):
+    BACKGROUND = 0
+    BUILDING = 1
+    ROAD = 2
+    WATER = 3
+    BARREN = 4
+    FOREST = 5
+    AGRICULTURE = 6
 
 class LoveDADataset(Dataset):
     def __init__(self, dataset_type, domain, transform, root_dir):
@@ -44,6 +54,7 @@ class LoveDADataset(Dataset):
 
         if self.dataset_type != 'Test':
             mask = cv2.imread(mask_path, cv2.IMREAD_UNCHANGED)
+            mask = mask - 1
         else:
             mask = torch.zeros((512, 512), dtype=torch.uint8)
 
