@@ -11,6 +11,11 @@ from torch.utils.data import DataLoader
 from torchvision import transforms as T
 from torchvision.utils import make_grid
 
+from albumentations import (
+    HorizontalFlip, VerticalFlip, RandomRotate90, ShiftScaleRotate, RandomBrightnessContrast, Resize, Normalize, Compose
+)
+from albumentations.pytorch import ToTensorV2
+
 from datasets import LoveDADataset
 
 
@@ -32,15 +37,16 @@ def get_device():
 
 def dataset_preprocessing(domain, batch_size):
     # Define transforms
-    dataset_transform = T.Compose([
-        T.Resize(512),
-        T.ToTensor()
+    transform = Compose([
+        Resize(512, 512),
+        # Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)),
+        ToTensorV2(),
     ])
 
     # Define the Dataset object for training, validation and testing
-    traindataset = LoveDADataset(dataset_type="Train", domain=domain, transform=dataset_transform, root_dir='data')
-    valdataset = LoveDADataset(dataset_type="Val", domain=domain, transform=dataset_transform, root_dir='data')
-    testdataset = LoveDADataset(dataset_type="Test", domain=domain, transform=dataset_transform, root_dir='data')
+    traindataset = LoveDADataset(dataset_type="Train", domain=domain, transform=transform, root_dir='data')
+    valdataset = LoveDADataset(dataset_type="Val", domain=domain, transform=transform, root_dir='data')
+    testdataset = LoveDADataset(dataset_type="Test", domain=domain, transform=transform, root_dir='data')
 
     # Define the DataLoaders
     trainloader = DataLoader(traindataset, batch_size=batch_size, shuffle=True, num_workers=2, drop_last=True)
@@ -64,8 +70,8 @@ def plot_image(image, mask=None, title=None, show=True):
 
     if mask is not None:
         np_mask = mask.numpy()
-        print(np_mask)
-        plt.imshow(np.transpose(np_mask, (1, 2, 0)), cmap='jet', alpha=0.2)
+        
+        plt.imshow(np_mask, cmap='jet', alpha=0.2)
 
     plt.axis("off")
 

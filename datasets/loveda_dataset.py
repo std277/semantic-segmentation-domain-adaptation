@@ -1,5 +1,5 @@
 import os
-from PIL import Image
+import cv2
 
 import torch
 from torch.utils.data import Dataset
@@ -39,27 +39,19 @@ class LoveDADataset(Dataset):
     def __getitem__(self, index):
         img_path, mask_path = self.samples[index]
 
-        image = Image.open(img_path).convert('RGB')
-        mask = torch.zeros((512, 512))
+        image = cv2.imread(img_path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
         if self.dataset_type != 'Test':
-            mask = Image.open(mask_path).convert('L')
+            mask = cv2.imread(mask_path, cv2.IMREAD_UNCHANGED)
+        else:
+            mask = torch.zeros((512, 512), dtype=torch.uint8)
 
-
-        # loading image and mask
-        # image = torchvision.io.read_image(
-        #     self.images[index]).float() / 255.0  # Normalize to [0, 1]
-        # mask = torchvision.io.read_image(
-        #     self.masks[index], mode=torchvision.io.ImageReadMode.GRAY)
-
-        # resizing to 512x512 (consistent dimensions for model input)
-        # image = torchvision.transforms.functional.resize(image, size=(512, 512))
-        # mask = torchvision.transforms.functional.resize(mask, size=(512, 512), interpolation=Image.NEAREST)
-
-        # image = F.resize(image, size=(512, 512))
-        # mask = F.resize(mask, size=(512, 512), interpolation=Image.NEAREST)
-
-        image = self.transform(image)
         if self.dataset_type != 'Test':
-            mask = self.transform(mask)
+            transformation = self.transform(image=image, mask=mask)
+            image, mask = transformation['image'], transformation['mask']
+        else:
+            transformation = self.transform(image=image)
+            image = transformation['image']
 
         return image, mask
