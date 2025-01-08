@@ -59,6 +59,7 @@ def plot_image():
 def plot_batch():
     pass
 
+
 def inspect_dataset(trainloader, valloader, testloader):
     def imshow(title, img):
         # img = img / 2 + 0.5
