@@ -1,9 +1,15 @@
 import argparse
 import os
 
+import matplotlib.pyplot as plt
+
+import numpy as np
+
 import torch
 from torch.utils.data import DataLoader
-import torchvision.transforms as T
+
+from torchvision import transforms as T
+from torchvision.utils import make_grid
 
 from datasets import LoveDADataset
 
@@ -27,10 +33,8 @@ def get_device():
 def dataset_preprocessing(domain, batch_size):
     # Define transforms
     dataset_transform = T.Compose([
-        T.Resize(256),
-        T.CenterCrop(224),
-        T.ToTensor(),
-        T.Normalize([0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        T.Resize(512),
+        T.ToTensor()
     ])
 
     # Define the Dataset object for training, validation and testing
@@ -46,6 +50,39 @@ def dataset_preprocessing(domain, batch_size):
     return trainloader, valloader, testloader
 
 
+def overlap_mask_on_image(image, mask):
+    pass
+
+def plot_image():
+    pass
+
+def plot_batch():
+    pass
+
+def inspect_dataset(trainloader, valloader, testloader):
+    def imshow(title, img):
+        # img = img / 2 + 0.5
+        npimg = img.numpy()
+        plt.figure()
+        plt.title(title)
+        plt.imshow(np.transpose(npimg, (1, 2, 0)))
+        plt.axis("off")
+
+
+    for type, loader in zip(
+        ("Train", "Val", "Test"), (trainloader, valloader, testloader)
+    ):
+        it = iter(loader)
+        images, masks = next(it)
+
+        # Overlap faded mask on image
+
+        imshow(title=f"{type} sample batch", img=make_grid(images))
+
+    plt.show()
+
+
+
 def main(args):
     torch.manual_seed(args.seed)
 
@@ -58,6 +95,9 @@ def main(args):
 
     os.makedirs(res_dir, exist_ok=True)
 
+    trainloader, valloader, testloader = dataset_preprocessing(domain="Urban", batch_size=4)
+
+    inspect_dataset(trainloader, valloader, testloader)
 
 
 
