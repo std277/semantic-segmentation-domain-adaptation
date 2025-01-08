@@ -53,8 +53,25 @@ def dataset_preprocessing(domain, batch_size):
 def overlap_mask_on_image(image, mask):
     pass
 
-def plot_image():
-    pass
+def plot_image(image, mask=None, title=None, show=True):
+    plt.figure()
+
+    if title is not None:
+        plt.title(title)
+
+    np_image = image.numpy()
+    plt.imshow(np.transpose(np_image, (1, 2, 0)))
+
+    if mask is not None:
+        np_mask = mask.numpy()
+        print(np_mask)
+        plt.imshow(np.transpose(np_mask, (1, 2, 0)), cmap='jet', alpha=0.2)
+
+    plt.axis("off")
+
+    if show:
+        plt.show()
+
 
 def plot_batch():
     pass
@@ -70,9 +87,7 @@ def inspect_dataset(trainloader, valloader, testloader):
         plt.axis("off")
 
 
-    for type, loader in zip(
-        ("Train", "Val", "Test"), (trainloader, valloader, testloader)
-    ):
+    for type, loader in zip(("Train", "Val", "Test"), (trainloader, valloader, testloader)):
         it = iter(loader)
         images, masks = next(it)
 
@@ -98,7 +113,14 @@ def main(args):
 
     trainloader, valloader, testloader = dataset_preprocessing(domain="Urban", batch_size=4)
 
-    inspect_dataset(trainloader, valloader, testloader)
+    # inspect_dataset(trainloader, valloader, testloader)
+
+    trainit = iter(trainloader)
+    images, masks = next(trainit)
+
+    for image, mask in zip(images, masks):
+        plot_image(image, mask, title="Urban train image", show=False)
+    plt.show()
 
 
 
