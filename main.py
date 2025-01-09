@@ -33,7 +33,7 @@ def dataset_preprocessing(domain, batch_size):
     # Define transforms
     transform = Compose([
         Resize(512, 512),
-        # Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)),
+        Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
         ToTensorV2(),
     ])
 
@@ -65,7 +65,9 @@ def main(args):
 
     trainloader, valloader, testloader = dataset_preprocessing(domain="Urban", batch_size=4)
 
-    inspect_dataset(trainloader, valloader, testloader)
+    # inspect_dataset(trainloader, valloader, testloader)
+
+    
 
     
 

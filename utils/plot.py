@@ -17,6 +17,9 @@ CLASS_COLOR = {
     LoveDADatasetLabel.AGRICULTURE: (0.5, 0.5, 0.5),    # Agriculture - Gray
 }
 
+MEAN = np.array((0.485, 0.456, 0.406))
+STD = np.array((0.229, 0.224, 0.225))
+
 
 def get_mask_color_image(np_image, np_mask):
     np_mask = np.repeat(np_mask[:, :, np.newaxis], 3, axis=2)
@@ -38,7 +41,7 @@ def plot_image(image, mask=None, alpha=1., title=None, show=True):
         if title is not None:
             fig.suptitle(title)
 
-        np_image = np.transpose(image.numpy(), (1, 2, 0))
+        np_image = image.numpy().transpose((1, 2, 0)) * STD + MEAN
         axes[0].imshow(np_image)
         axes[0].axis("off")
         axes[0].set_title("Original Image")
@@ -61,7 +64,7 @@ def plot_image(image, mask=None, alpha=1., title=None, show=True):
         if title is not None:
             plt.title(title)
 
-        np_image = np.transpose(image.numpy(), (1, 2, 0))
+        np_image = image.numpy().transpose((1, 2, 0)) * STD + MEAN
         plt.imshow(np_image)
 
         if mask is not None:
@@ -93,7 +96,7 @@ def plot_batch(images, masks=None, alpha=0.3, title=None, show=True):
     if masks is not None:
         for i, (image, mask) in enumerate(zip(images, masks)):
             axes[i].axis("off")
-            np_image = np.transpose(image.numpy(), (1, 2, 0))
+            np_image = image.numpy().transpose((1, 2, 0)) * STD + MEAN
             np_mask = mask.numpy()
             np_mask_color_image = get_mask_color_image(np_image, np_mask)
             axes[i].imshow(np_image)
@@ -105,7 +108,7 @@ def plot_batch(images, masks=None, alpha=0.3, title=None, show=True):
     else:
         for i, image in enumerate(images):
             axes[i].axis("off")
-            np_image = np.transpose(image.numpy(), (1, 2, 0))
+            np_image = image.numpy().transpose((1, 2, 0)) * STD + MEAN
             axes[i].imshow(np_image)
 
     if show:
@@ -117,9 +120,9 @@ def inspect_dataset(trainloader, valloader, testloader):
         it = iter(loader)
         images, masks = next(it)
 
-        for image, mask in zip(images, masks):
-            plot_image(image, mask if type != "Test" else None, alpha=0.2, title=f"{type} image sample", show=False)
+        # for image, mask in zip(images, masks):
+        #     plot_image(image, mask if type != "Test" else None, alpha=1., title=f"{type} image sample", show=False)
 
-        # plot_batch(images, masks if type!="Test" else None, alpha=0.3, title=f"{type} image batch", show=False)
+        plot_batch(images, masks if type!="Test" else None, alpha=0.3, title=f"{type} image batch", show=False)
 
-    plt.show()
+        plt.show()
