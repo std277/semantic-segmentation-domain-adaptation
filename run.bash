@@ -1,1 +1,1 @@
-python3 main.py --store local
+python3 main.py --model_name DeepLabV2_ResNet101 --version 0 --store local

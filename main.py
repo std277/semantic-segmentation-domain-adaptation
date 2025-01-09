@@ -1,16 +1,23 @@
 import argparse
 import os
 
+import random
+
 import torch
 from torch.utils.data import DataLoader
 
-from albumentations import (
-    Compose, Resize, Normalize, HorizontalFlip, VerticalFlip, RandomRotate90, ShiftScaleRotate, RandomBrightnessContrast
-)
+from albumentations import Compose, Resize, Normalize, HorizontalFlip, VerticalFlip, RandomRotate90, ShiftScaleRotate, RandomBrightnessContrast
 from albumentations.pytorch import ToTensorV2
 
 from datasets import LoveDADataset
-from utils.plot import *
+from models import DeepLabV2_ResNet101
+from utils import *
+
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
 
 
 def get_device():
@@ -51,11 +58,18 @@ def dataset_preprocessing(domain, batch_size):
 
 
 
-def main(args):
-    torch.manual_seed(args.seed)
+def get_model(model_name, device):
+    if model_name == "DeepLabV2_ResNet101":
+        model = DeepLabV2_ResNet101(num_classes=7, pretrain=True, pretrain_model_path='./weights_pretrained/deeplab_resnet_pretrained_imagenet.pth')
+    else:
+        raise Exception(f"Model {model_name} doesn't exist")
 
-    device = get_device()
+    model = model.to(device)
 
+    return model
+
+
+def make_results_dir(args):
     if  args.store == "drive":
         res_dir = "/content/drive/MyDrive/res"
     else:
@@ -63,9 +77,35 @@ def main(args):
 
     os.makedirs(res_dir, exist_ok=True)
 
-    trainloader, valloader, testloader = dataset_preprocessing(domain="Urban", batch_size=4)
+    dir_name = f"{args.model_name}_{args.version}"
+    for file in os.listdir(f"res"):
+        if file == dir_name:
+            raise Exception(f"Directory {dir_name} already exists")
 
+    res_dir = f"{res_dir}/{dir_name}"
+    sub_dirs = [res_dir, f"{res_dir}/weights", f"{res_dir}/plots"]
+    for sub_dir in sub_dirs:
+        os.makedirs(sub_dir, exist_ok=True)
+
+
+def main(args):
+    set_seed(args.seed)
+    make_results_dir(args)
+    device = get_device()
+
+    trainloader, valloader, testloader = dataset_preprocessing(domain="Urban", batch_size=4)
     # inspect_dataset(trainloader, valloader, testloader)
+
+    model = get_model(args.model_name, device)
+
+    if args.train:
+        pass
+
+    if args.test:
+        pass
+    
+
+    
 
     
 
@@ -77,6 +117,44 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="CIFAR10 Classification")
+
+    models_choices = [
+        "DeepLabV2_ResNet101",
+    ]
+
+    parser.add_argument(
+        "--train",
+        action="store_true",
+        help="Enable training mode"
+    )
+    
+    parser.add_argument(
+        "--test",
+        action="store_true",
+        help="Enable testing mode"
+    )
+
+    parser.add_argument(
+        "--model_name",
+        type=str,
+        choices=models_choices,
+        required=True,
+        help=f"Specify the model name.",
+    )
+
+    parser.add_argument(
+        "--version",
+        type=int,
+        default=0,
+        help=f"Specify the version.",
+    )
+
+    parser.add_argument(
+        "--test_model_file",
+        type=str,
+        default="best.pt",
+        help=f"Specify the model file name for testing.",
+    )
 
     parser.add_argument(
         "--seed",
