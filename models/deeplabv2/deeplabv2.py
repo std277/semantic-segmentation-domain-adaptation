@@ -3,7 +3,6 @@ import torch.nn as nn
 
 affine_par = True
 
-
 class Bottleneck(nn.Module):
     expansion = 4
 

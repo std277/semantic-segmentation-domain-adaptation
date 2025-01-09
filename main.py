@@ -5,7 +5,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from albumentations import (
-    HorizontalFlip, VerticalFlip, RandomRotate90, ShiftScaleRotate, RandomBrightnessContrast, Resize, Normalize, Compose
+    Compose, Resize, Normalize, HorizontalFlip, VerticalFlip, RandomRotate90, ShiftScaleRotate, RandomBrightnessContrast
 )
 from albumentations.pytorch import ToTensorV2
 
