@@ -6,8 +6,6 @@ from enum import Enum
 import torch
 from torch.utils.data import Dataset
 
-import torchvision
-from torchvision.transforms import functional as F
 
 class LoveDADatasetLabel(Enum):
     BACKGROUND = 0
@@ -17,6 +15,7 @@ class LoveDADatasetLabel(Enum):
     BARREN = 4
     FOREST = 5
     AGRICULTURE = 6
+
 
 class LoveDADataset(Dataset):
     def __init__(self, dataset_type, domain, transform, root_dir):
@@ -34,7 +33,8 @@ class LoveDADataset(Dataset):
         self.transform = transform
         self.samples = []
 
-        image_dir = os.path.join(root_dir, f'{dataset_type}/{domain}/images_png')
+        image_dir = os.path.join(
+            root_dir, f'{dataset_type}/{domain}/images_png')
         mask_dir = os.path.join(root_dir, f'{dataset_type}/{domain}/masks_png')
 
         for filename in os.listdir(image_dir):

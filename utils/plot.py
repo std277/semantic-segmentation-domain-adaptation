@@ -5,10 +5,6 @@ import math
 
 import numpy as np
 
-import torch
-
-from torchvision.utils import make_grid
-
 from datasets import LoveDADatasetLabel
 
 CLASS_COLOR = {
@@ -21,12 +17,14 @@ CLASS_COLOR = {
     LoveDADatasetLabel.AGRICULTURE: (0.5, 0.5, 0.5),    # Agriculture - Gray
 }
 
+
 def get_mask_color_image(np_image, np_mask):
     np_mask = np.repeat(np_mask[:, :, np.newaxis], 3, axis=2)
 
     np_mask_color_image = np_image.copy()
     for label in LoveDADatasetLabel:
-        np_mask_color_image = np.where(np_mask == label.value, CLASS_COLOR[label], np_mask_color_image)
+        np_mask_color_image = np.where(
+            np_mask == label.value, CLASS_COLOR[label], np_mask_color_image)
 
     return np_mask_color_image
 
@@ -72,10 +70,11 @@ def plot_image(image, mask=None, alpha=1., title=None, show=True):
             plt.imshow(np_mask_color_image, alpha=alpha)
 
             patches = [mpatches.Patch(color=CLASS_COLOR[label], label=label.name.lower().capitalize()) for label in LoveDADatasetLabel]
-            plt.legend(handles=patches, bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
+            plt.legend(handles=patches, bbox_to_anchor=(
+                1.05, 1), loc='upper left', borderaxespad=0.)
 
         plt.axis("off")
-        
+
         if show:
             plt.show()
 
@@ -99,8 +98,10 @@ def plot_batch(images, masks=None, alpha=0.3, title=None, show=True):
             np_mask_color_image = get_mask_color_image(np_image, np_mask)
             axes[i].imshow(np_image)
             axes[i].imshow(np_mask_color_image, alpha=alpha)
-        patches = [mpatches.Patch(color=CLASS_COLOR[label], label=label.name.lower().capitalize()) for label in LoveDADatasetLabel]
-        plt.legend(handles=patches, bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
+        patches = [mpatches.Patch(color=CLASS_COLOR[label], label=label.name.lower(
+        ).capitalize()) for label in LoveDADatasetLabel]
+        plt.legend(handles=patches, bbox_to_anchor=(
+            1.05, 1), loc='upper left', borderaxespad=0.)
     else:
         for i, image in enumerate(images):
             axes[i].axis("off")
@@ -111,15 +112,14 @@ def plot_batch(images, masks=None, alpha=0.3, title=None, show=True):
         plt.show()
 
 
-
 def inspect_dataset(trainloader, valloader, testloader):
     for type, loader in zip(("Train", "Val", "Test"), (trainloader, valloader, testloader)):
         it = iter(loader)
         images, masks = next(it)
 
         for image, mask in zip(images, masks):
-            plot_image(image, mask if type!="Test" else None, alpha=1., title=f"{type} image sample", show=False)
+            plot_image(image, mask if type != "Test" else None, alpha=0.2, title=f"{type} image sample", show=False)
 
         # plot_batch(images, masks if type!="Test" else None, alpha=0.3, title=f"{type} image batch", show=False)
-    
+
     plt.show()

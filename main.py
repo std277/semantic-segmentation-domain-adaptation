@@ -1,8 +1,6 @@
 import argparse
 import os
 
-import numpy as np
-
 import torch
 from torch.utils.data import DataLoader
 
@@ -11,7 +9,7 @@ from albumentations import (
 )
 from albumentations.pytorch import ToTensorV2
 
-from datasets import LoveDADataset, LoveDADatasetLabel
+from datasets import LoveDADataset
 from utils.plot import *
 
 
@@ -67,7 +65,7 @@ def main(args):
 
     trainloader, valloader, testloader = dataset_preprocessing(domain="Urban", batch_size=4)
 
-    # inspect_dataset(trainloader, valloader, testloader)
+    inspect_dataset(trainloader, valloader, testloader)
 
     
 
