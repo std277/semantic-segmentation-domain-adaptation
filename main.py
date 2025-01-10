@@ -218,7 +218,7 @@ def get_scheduler(optimizer, args):
 def train(model, trainloader, loss_function, optimizer, scheduler, epochs, device, monitor, res_dir):
     cudnn.benchmark = True
 
-    if device == "cuda":
+    if device.type == "cuda":
         scaler = GradScaler(device)
     else:
         scaler = None
@@ -259,7 +259,7 @@ def train(model, trainloader, loss_function, optimizer, scheduler, epochs, devic
                 # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 optimizer.step()
             
-            # cumulative_loss += loss.item()
+            cumulative_loss += loss.item()
             count_loss += 1
             train_loss = cumulative_loss / count_loss
 
