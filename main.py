@@ -243,7 +243,7 @@ def train(model, trainloader, loss_function, optimizer, scheduler, epochs, devic
             optimizer.zero_grad()
 
             if scaler:
-                with autocast():
+                with autocast("cuda"):
                     logits = model(images)
                     # outputs = torch.argmax(torch.softmax(logits, dim=1), dim=1)
                     loss = loss_function(logits, masks)
