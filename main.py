@@ -14,7 +14,7 @@ import torch.optim as optim
 from torch.optim import Adam, SGD
 from torch.optim.lr_scheduler import LambdaLR, StepLR, CosineAnnealingLR
 from torch.backends import cudnn
-from torch.cuda.amp import GradScaler, autocast
+from torch.amp import GradScaler, autocast
 
 from albumentations import Compose, Resize, Normalize, HorizontalFlip, VerticalFlip, RandomRotate90, ShiftScaleRotate, RandomBrightnessContrast
 from albumentations.pytorch import ToTensorV2
