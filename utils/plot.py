@@ -117,12 +117,13 @@ def plot_batch(images, masks=None, alpha=0.3, title=None, show=True):
 
 def inspect_dataset(trainloader, valloader, testloader):
     for type, loader in zip(("Train", "Val", "Test"), (trainloader, valloader, testloader)):
-        it = iter(loader)
-        images, masks = next(it)
+        if loader is not None:
+            it = iter(loader)
+            images, masks = next(it)
 
-        # for image, mask in zip(images, masks):
-        #     plot_image(image, mask if type != "Test" else None, alpha=1., title=f"{type} image sample", show=False)
+            # for image, mask in zip(images, masks):
+            #     plot_image(image, mask if type != "Test" else None, alpha=1., title=f"{type} image sample", show=False)
 
-        plot_batch(images, masks if type!="Test" else None, alpha=0.3, title=f"{type} image batch", show=False)
+            plot_batch(images, masks if type!="Test" else None, alpha=0.3, title=f"{type} image batch", show=False)
 
-        plt.show()
+            plt.show()

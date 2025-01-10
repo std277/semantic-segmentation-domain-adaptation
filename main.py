@@ -43,6 +43,17 @@ def make_results_dir(store, model_name, version):
 
     return res_dir
 
+def get_results_dir(store, model_name, version):
+    if store == "drive":
+        res_dir = "/content/drive/MyDrive/res"
+    else:
+        res_dir = "res"
+
+    dir_name = f"{model_name}_{version}"
+    res_dir = f"{res_dir}/{dir_name}"
+
+    return res_dir
+
 
 def get_device():
     if torch.cuda.is_available():
@@ -152,27 +163,45 @@ def test():
 
 def main(args):
     set_seed(args.seed)
-    res_dir = make_results_dir(args.store, args.model_name, args.version)
     device = get_device()
-
-    trainloader, valloader, testloader = dataset_preprocessing(
-        domain="Urban", batch_size=4)
-    # inspect_dataset(trainloader, valloader, testloader)
 
     model = get_model(args.model_name, device)
 
     if args.train:
+        res_dir = make_results_dir(args.store, args.model_name, args.version)
+        
         train_monitor = Monitor(file_name=f"{res_dir}/training_log.txt")
 
+        trainloader, valloader, testloader = dataset_preprocessing(
+            domain=args.source_domain,
+            batch_size=args.batch_size
+        )
+        
+        # inspect_dataset(trainloader, valloader, testloader)
+
+        loss_function = get_loss_function()
+        optimizer = get_optimizer(model, args)
+        scheduler = get_scheduler(optimizer, args)
 
 
+        train_monitor.log(f"Model:\n{model}\n")
+        train_monitor.log(f"Loss function:\n{loss_function}\n")
+        train_monitor.log(f"Optimizer:\n{optimizer}\n")
+        train_monitor.log(f"Scheduler:\n{scheduler.__class__.__name__}")
+        for attr in dir(scheduler):
+            if not attr.startswith("_") and not callable(getattr(scheduler, attr)):
+                train_monitor.log(f"{attr}: {getattr(scheduler, attr)}")
+        train_monitor.log("\n")
 
-        train_monitor.log(f"Model: {args.model_name}")
         # train(...)
 
-    if args.test:
-        test_monitor = Monitor(file_name=f"{res_dir}/testing_log.txt")
 
+
+
+    if args.test:
+        res_dir = get_results_dir(args.store, args.model_name, args.version)
+
+        test_monitor = Monitor(file_name=f"{res_dir}/testing_log.txt")
 
 
         test_monitor.log(f"Model: {args.model_name}")
@@ -183,9 +212,32 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="CIFAR10 Classification")
 
+    domains_choices = [
+        "Rural",
+        "Urban"
+    ]
+
     models_choices = [
         "DeepLabV2_ResNet101",
     ]
+
+    optimizers_choices = [
+        "Adam",
+        "SGD"
+    ]
+
+    schedulers_choices = [
+        "ConstantLR",
+        "StepLR",
+        "CosineAnnealingLR"
+    ]
+
+    store_choices = [
+        "local",
+        "drive",
+    ]
+
+
 
     parser.add_argument(
         "--train",
@@ -197,6 +249,22 @@ if __name__ == "__main__":
         "--test",
         action="store_true",
         help="Enable testing mode"
+    )
+
+    parser.add_argument(
+        "--source_domain",
+        type=str,
+        choices=domains_choices,
+        default="Rural",
+        help=f"Specify the source domain for training.",
+    )
+
+    parser.add_argument(
+        "--target_domain",
+        type=str,
+        choices=domains_choices,
+        default="Rural",
+        help=f"Specify the target domain for testing.",
     )
 
     parser.add_argument(
@@ -222,6 +290,63 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=128,
+        help=f"Specify the batch size.",
+    )
+    parser.add_argument(
+        "--optimizer",
+        type=str,
+        choices=optimizers_choices,
+        default="SGD",
+        help=f"Specify the optimizer.",
+    )
+    parser.add_argument(
+        "--scheduler",
+        type=str,
+        choices=schedulers_choices,
+        default="CosineAnnealingLR",
+        help=f"Specify the learning rate scheduler.",
+    )
+    parser.add_argument(
+        "--lr",
+        type=float,
+        default=0.01,
+        help=f"Specify the learning rate.",
+    )
+    parser.add_argument(
+        "--momentum",
+        type=float,
+        default=0.9,
+        help=f"Specify the momentum.",
+    )
+    parser.add_argument(
+        "--weight_decay",
+        type=float,
+        default=0.0005,
+        help=f"Specify the weight decay.",
+    )
+    parser.add_argument(
+        "--step_size",
+        type=int,
+        default=10,
+        help=f"Specify the step size.",
+    )
+    parser.add_argument(
+        "--gamma",
+        type=float,
+        default=0.1,
+        help=f"Specify gamma.",
+    )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=20,
+        help=f"Specify the number of training epochs.",
+    )
+
+    parser.add_argument(
         "--seed",
         type=int,
         default=17,
@@ -231,8 +356,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--store",
         type=str,
-        choices=["local", "drive"],
-        default="drive",
+        choices=store_choices,
+        default="local",
         help=f"Specify where to store results (local, drive).",
     )
 
