@@ -339,6 +339,9 @@ def main(args):
         )
         
         # inspect_dataset(trainloader, valloader, testloader)
+        inspect_dataset_masks(trainloader, valloader, testloader)
+
+        exit()
 
         loss_function = get_loss_function()
         optimizer = get_optimizer(model, args)
