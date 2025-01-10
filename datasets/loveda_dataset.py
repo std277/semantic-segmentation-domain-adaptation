@@ -3,9 +3,14 @@ import cv2
 
 from enum import Enum
 
+import numpy as np
+
 import torch
 from torch.utils.data import Dataset
 
+NUM_CLASSES = 7
+MEAN = np.array((0.485, 0.456, 0.406))
+STD = np.array((0.229, 0.224, 0.225))
 
 class LoveDADatasetLabel(Enum):
     BACKGROUND = 0

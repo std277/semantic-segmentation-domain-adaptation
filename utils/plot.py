@@ -5,7 +5,7 @@ import math
 
 import numpy as np
 
-from datasets import LoveDADatasetLabel
+from datasets import LoveDADatasetLabel, MEAN, STD
 
 CLASS_COLOR = {
     LoveDADatasetLabel.BACKGROUND: (0.0, 0.0, 1.0),     # Background - Blue
@@ -17,8 +17,7 @@ CLASS_COLOR = {
     LoveDADatasetLabel.AGRICULTURE: (0.5, 0.5, 0.5),    # Agriculture - Gray
 }
 
-MEAN = np.array((0.485, 0.456, 0.406))
-STD = np.array((0.229, 0.224, 0.225))
+
 
 
 def get_mask_color_image(np_image, np_mask):
@@ -171,16 +170,29 @@ def inspect_dataset_masks(trainloader, valloader, testloader):
 #     plt.savefig(f"{base_dir}/plots/learning_rate_{model_number}.pdf")
 #     plt.close(fig)
 
-def plot_loss(train_losses, res_dir):
+def plot_loss(train_losses, val_losses, res_dir):
     fig = plt.figure()
     plt.title("Loss")
     plt.ylabel("Loss")
     plt.xlabel("Epoch")
     plt.plot(train_losses, label="Train Loss")
-    # plt.plot(val_losses, label="Val Loss")
+    plt.plot(val_losses, label="Val Loss")
     plt.legend()
     plt.savefig(f"{res_dir}/plots/loss.pdf")
     plt.close(fig)
+
+
+def plot_mIoU(train_mIoUs, val_mIoUs, res_dir):
+    fig = plt.figure()
+    plt.title("Mean Intersection over Union")
+    plt.ylabel("mIoU")
+    plt.xlabel("Epoch")
+    plt.plot(train_mIoUs, label="Train mIoU")
+    plt.plot(val_mIoUs, label="Val mIoU")
+    plt.legend()
+    plt.savefig(f"{res_dir}/plots/mIoU.pdf")
+    plt.close(fig)
+
 
 def plot_learning_rate(learning_rates, res_dir):
     fig = plt.figure()

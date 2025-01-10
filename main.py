@@ -19,7 +19,9 @@ from torch.amp import GradScaler, autocast
 from albumentations import Compose, Resize, Normalize, HorizontalFlip, VerticalFlip, RandomRotate90, ShiftScaleRotate, RandomBrightnessContrast
 from albumentations.pytorch import ToTensorV2
 
-from datasets import LoveDADataset
+from fvcore.nn import FlopCountAnalysis, flop_count_table
+
+from datasets import LoveDADataset, MEAN, STD, NUM_CLASSES
 from models import DeepLabV2_ResNet101
 from utils import *
 
@@ -79,7 +81,13 @@ def get_device():
     return device
 
 
-def log_training_setup(model, loss_function, optimizer, scheduler, args, monitor):
+def log_training_setup(model, loss_function, optimizer, scheduler, device, args, monitor):
+    monitor.log(f"Device:\n{device}\n")
+
+    monitor.log(f"Dataset source domain:\n{args.source_domain}\n")
+
+    monitor.log(f"Batch size:\n{args.batch_size}\n")
+
     monitor.log(f"Model:\n{model}\n")
 
     monitor.log(f"Loss function:\n{loss_function}\n")
@@ -109,11 +117,17 @@ def log_training_setup(model, loss_function, optimizer, scheduler, args, monitor
     monitor.log(")\n")
 
 
+
+def log_testing_setup(device, args, monitor):
+    monitor.log(f"Device:\n{device}\n")
+    monitor.log(f"Dataset target domain:\n{args.target_domain}\n")
+
+
 def dataset_preprocessing(domain, batch_size):
     # Define transforms
     transform = Compose([
         Resize(512, 512),
-        Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+        Normalize(mean=MEAN, std=STD),
         ToTensorV2(),
     ])
 
@@ -206,6 +220,24 @@ def get_scheduler(optimizer, args):
     return scheduler
 
 
+def compute_mIoU(predictions, masks, num_classes):
+    iou_per_class = torch.zeros(num_classes, dtype=torch.float32)
+
+    predictions = predictions.view(-1)
+    masks = masks.view(-1)
+
+    for cls in range(num_classes):
+        intersection = torch.sum((predictions == cls) & (masks == cls))
+        union = torch.sum((predictions == cls) | (masks == cls))
+
+        if union == 0:
+            iou_per_class[cls] = float('nan')
+        else:
+            iou_per_class[cls] = intersection / union
+
+    mean_iou = torch.nanmean(iou_per_class).item()
+
+    return mean_iou
 
 
 
@@ -213,9 +245,7 @@ def get_scheduler(optimizer, args):
 
 
 
-
-
-def train(model, trainloader, loss_function, optimizer, scheduler, epochs, device, monitor, res_dir):
+def train(model, trainloader, valloader, loss_function, optimizer, scheduler, epochs, patience, device, monitor, res_dir):
     cudnn.benchmark = True
 
     if device.type == "cuda":
@@ -224,17 +254,25 @@ def train(model, trainloader, loss_function, optimizer, scheduler, epochs, devic
         scaler = None
 
     train_losses = []
+    val_losses = []
+    train_mIoUs = []
+    val_mIoUs = []
     learning_rates = []
 
+    best_val_loss = None
+    patience_counter = 0
+
     for e in range(epochs):
+        # Training
         monitor.start(desc=f"Epoch {e + 1}/{epochs}", max_progress=len(trainloader))
 
         learning_rate = scheduler.get_last_lr()[0]
         learning_rates.append(learning_rate)
 
-        train_loss = 0.0
         cumulative_loss = 0.0
-        count_loss = 0
+        cumulative_mIoU = 0.0
+        count = 0
+        train_mIoU = 0.0
 
         model.train()
         for i, (images, masks) in enumerate(trainloader):
@@ -245,7 +283,6 @@ def train(model, trainloader, loss_function, optimizer, scheduler, epochs, devic
             if scaler:
                 with autocast("cuda"):
                     logits = model(images)
-                    # outputs = torch.argmax(torch.softmax(logits, dim=1), dim=1)
                     loss = loss_function(logits, masks)
 
                 scaler.scale(loss).backward()
@@ -253,31 +290,95 @@ def train(model, trainloader, loss_function, optimizer, scheduler, epochs, devic
                 scaler.update()
             else:
                 logits = model(images)
-                # outputs = torch.argmax(torch.softmax(logits, dim=1), dim=1)
                 loss = loss_function(logits, masks)
                 loss.backward()
                 # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 optimizer.step()
+
+            predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
             
+            count += 1
+
             cumulative_loss += loss.item()
-            count_loss += 1
-            train_loss = cumulative_loss / count_loss
+            train_loss = cumulative_loss / count
+
+            mIoU = compute_mIoU(predictions, masks, NUM_CLASSES)
+            cumulative_mIoU += mIoU
+            train_mIoU = cumulative_mIoU / count
 
             monitor.update(
                 i + 1,
                 learning_rate=f"{learning_rate:.5f}",
                 train_loss=f"{train_loss:.4f}",
+                train_mIoU=f"{train_mIoU:.4f}",
             )
 
         train_losses.append(train_loss)
+        train_mIoUs.append(train_mIoU)
+
         monitor.stop()
+
+
+
+
+        # Validation
+        monitor.start(desc=f"Validation", max_progress=len(valloader))
+
+        cumulative_loss = 0.0
+        cumulative_mIoU = 0.0
+        count = 0
+        val_mIoU = 0.0
+
+        model.eval()
+        with torch.no_grad():
+            for i, (images, masks) in enumerate(valloader):
+                images, masks = images.to(device), masks.to(device)
+                logits = model(images)
+                loss = loss_function(logits, masks)
+                
+                predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
+                
+                count += 1
+                
+                cumulative_loss += loss.item()
+                val_loss = cumulative_loss / count
+
+                mIoU = compute_mIoU(predictions, masks, NUM_CLASSES)
+                cumulative_mIoU += mIoU
+                val_mIoU = cumulative_mIoU / count
+            
+                monitor.update(
+                    i + 1,
+                    val_loss=f"{val_loss:.4f}",
+                    val_mIoU=f"{val_mIoU:.4f}",
+                )
+
+        val_losses.append(val_loss)
+        val_mIoUs.append(val_mIoU)
+
+        monitor.stop()
+
+        if best_val_loss is None or val_loss < best_val_loss:
+            save_model(model, f"{res_dir}/weights/best.pt")
+            monitor.log(f"Model saved as best.pt\n")
+            best_val_loss = val_loss
+            patience_counter = 0
+        else:
+            patience_counter += 1
+
+        if patience_counter >= patience:
+            monitor.log(f"Early stopping after {e + 1} epochs\n")
+            break
+
 
         scheduler.step()
 
         save_model(model, f"{res_dir}/weights/last.pt")
 
-        plot_loss(train_losses, res_dir)
+        plot_loss(train_losses, val_losses, res_dir)
+        plot_mIoU(train_mIoUs, val_mIoUs, res_dir)
         plot_learning_rate(learning_rates, res_dir)
+
 
     monitor.print_stats()
 
@@ -285,10 +386,22 @@ def train(model, trainloader, loss_function, optimizer, scheduler, epochs, devic
 def test(model, valloader, device, monitor):
     monitor.start(desc=f"Testing", max_progress=len(valloader))
 
+    flops_count = 0
+    cumulative_mIoU = 0.0
+    count = 0
+    test_mIoU = 0.0
     inference_times = []
 
     model.eval()
     with torch.no_grad():
+        
+        # FLOPs analysis
+        images, _ = next(iter(valloader))
+        images = images.to(device)
+        flops = FlopCountAnalysis(model, images)
+        flops_count = flop_count_table(flops)
+
+        # Testing
         for i, (images, masks) in enumerate(valloader):
             images, masks = images.to(device), masks.to(device)
 
@@ -299,8 +412,17 @@ def test(model, valloader, device, monitor):
             batch_inference_time = (end_time - start_time) / images.size(0)
             inference_times.append(batch_inference_time)
 
+            predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
+            
+            count += 1
+
+            mIoU = compute_mIoU(predictions, masks, NUM_CLASSES)
+            cumulative_mIoU += mIoU
+            test_mIoU = cumulative_mIoU / count
+            
             monitor.update(
                 i + 1,
+                test_mIoU=f"{test_mIoU:.4f}",
             )
 
     monitor.stop()
@@ -308,7 +430,8 @@ def test(model, valloader, device, monitor):
     mean_inference_time = np.mean(inference_times)
     std_inference_time = np.std(inference_times)
 
-    # monitor.log(f"Accuracy on test images: {100 * test_accuracy:.3f} %")
+    monitor.log(f"FLOPs: {flops_count}")
+    monitor.log(f"Mean Intersection over Union on test images: {test_mIoU:.3f}")
     monitor.log(f"Mean inference time: {mean_inference_time * 1000:.3f} ms")
     monitor.log(f"Standard deviation of inference time: {std_inference_time * 1000:.3f} ms")
 
@@ -323,6 +446,9 @@ def test(model, valloader, device, monitor):
 
 
 def main(args):
+    if args.train and args.test:
+        raise Exception("Both train and test arguments are selected")
+
     set_seed(args.seed)
     device = get_device()
 
@@ -333,29 +459,31 @@ def main(args):
         
         train_monitor = Monitor(file_name=f"{res_dir}/training_log.txt")
 
-        trainloader, valloader, testloader = dataset_preprocessing(
+        trainloader, valloader, _ = dataset_preprocessing(
             domain=args.source_domain,
             batch_size=args.batch_size
         )
         
-        # inspect_dataset(trainloader, valloader, testloader)
-        inspect_dataset_masks(trainloader, valloader, testloader)
 
-        exit()
+        # inspect_dataset(trainloader, valloader, testloader)
+        # inspect_dataset_masks(trainloader, valloader, testloader)
+
 
         loss_function = get_loss_function()
         optimizer = get_optimizer(model, args)
         scheduler = get_scheduler(optimizer, args)
 
-        log_training_setup(model, loss_function, optimizer, scheduler, args, train_monitor)
+        log_training_setup(model, loss_function, optimizer, scheduler, device, args, train_monitor)
 
         train(
             model=model,
             trainloader=trainloader,
+            valloader=valloader,
             loss_function=loss_function,
             optimizer=optimizer,
             scheduler=scheduler,
             epochs=args.epochs,
+            patience=args.patience,
             device=device,
             monitor=train_monitor,
             res_dir=res_dir
@@ -369,8 +497,12 @@ def main(args):
 
         test_monitor = Monitor(file_name=f"{res_dir}/testing_log.txt")
 
+        trainloader, valloader, _ = dataset_preprocessing(
+            domain=args.target_domain,
+            batch_size=args.batch_size
+        )
 
-        test_monitor.log(f"Model: {args.model_name}")
+        log_testing_setup(device, args, test_monitor)
 
         test(
             model=model,
@@ -468,6 +600,7 @@ if __name__ == "__main__":
         default=8,
         help=f"Specify the batch size.",
     )
+
     parser.add_argument(
         "--optimizer",
         type=str,
@@ -475,6 +608,7 @@ if __name__ == "__main__":
         default="SGD",
         help=f"Specify the optimizer.",
     )
+
     parser.add_argument(
         "--scheduler",
         type=str,
@@ -482,47 +616,61 @@ if __name__ == "__main__":
         default="CosineAnnealingLR",
         help=f"Specify the learning rate scheduler.",
     )
+
     parser.add_argument(
         "--lr",
         type=float,
         default=0.01,
         help=f"Specify the initial learning rate.",
     )
+
     parser.add_argument(
         "--momentum",
         type=float,
         default=0.9,
         help=f"Specify the momentum for SGD optimizer.",
     )
+
     parser.add_argument(
         "--weight_decay",
         type=float,
         default=0.0005,
         help=f"Specify the weight decay for SGD optimizer.",
     )
+
     parser.add_argument(
         "--step_size",
         type=int,
         default=10,
         help=f"Specify the step size for StepLR scheduler.",
     )
+
     parser.add_argument(
         "--gamma",
         type=float,
         default=0.1,
         help=f"Specify gamma for StepLR scheduler.",
     )
+
     parser.add_argument(
         "--power",
         type=float,
         default=0.9,
         help=f"Specify power for PolynomialLR scheduler.",
     )
+
     parser.add_argument(
         "--epochs",
         type=int,
         default=20,
         help=f"Specify the number of training epochs.",
+    )
+
+    parser.add_argument(
+        "--patience",
+        type=int,
+        default=10,
+        help=f"Specify the number of epochs necessary for early stopping if there isn't improvement.",
     )
 
     parser.add_argument(
