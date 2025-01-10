@@ -219,7 +219,7 @@ def train(model, trainloader, loss_function, optimizer, scheduler, epochs, devic
     cudnn.benchmark = True
 
     if device.type == "cuda":
-        scaler = GradScaler(device)
+        scaler = GradScaler("cuda")
     else:
         scaler = None
 
