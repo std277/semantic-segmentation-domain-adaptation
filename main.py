@@ -85,6 +85,10 @@ def log_training_setup(model, loss_function, optimizer, scheduler, device, args,
     monitor.log(f"Model:\n{model}\n")
 
     monitor.log(f"Device:\n{device}\n")
+    if torch.cuda.is_available():
+        device_name = torch.cuda.get_device_name(torch.cuda.current_device())
+        monitor.log(f"Cuda device name:\n{device_name}\n")
+
 
     monitor.log(f"Dataset source domain:\n{args.source_domain}\n")
 
@@ -119,7 +123,7 @@ def log_training_setup(model, loss_function, optimizer, scheduler, device, args,
 
 
 def log_testing_setup(device, args, monitor):
-    monitor.log(f"Device:\n{device}\n{torch.cuda.get_device_name(device)}\n")
+    monitor.log(f"Device:\n{device}\n")
     monitor.log(f"Dataset target domain:\n{args.target_domain}\n")
 
 
