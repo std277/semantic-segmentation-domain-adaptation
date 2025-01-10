@@ -179,7 +179,7 @@ def train(model, trainloader, loss_function, optimizer, scheduler, epochs, devic
 
         scheduler.step()
 
-    plot_scheduler(learning_rates, res_dir)
+    plot_learning_rate(learning_rates, res_dir)
 
 
 

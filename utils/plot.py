@@ -163,7 +163,7 @@ def inspect_dataset(trainloader, valloader, testloader):
 #     plt.close(fig)
 
 
-def plot_scheduler(learning_rates, res_dir):
+def plot_learning_rate(learning_rates, res_dir):
     fig = plt.figure()
     plt.title("Learning rate")
     plt.ylabel("learning rate")
