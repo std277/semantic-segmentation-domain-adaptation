@@ -153,7 +153,7 @@ def load_model(model, file_name):
 
 
 def get_loss_function():
-    return nn.CrossEntropyLoss()
+    return nn.CrossEntropyLoss(ignore_index=255)
 
 
 def get_optimizer(model, args):
