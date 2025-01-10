@@ -35,7 +35,7 @@ def make_results_dir(store, model_name, version):
     os.makedirs(res_dir, exist_ok=True)
 
     dir_name = f"{model_name}_{version}"
-    for file in os.listdir(f"res"):
+    for file in os.listdir(res_dir):
         if file == dir_name:
             raise Exception(f"Directory {dir_name} already exists")
 
@@ -352,7 +352,7 @@ def main(args):
 
 
         test_monitor.log(f"Model: {args.model_name}")
-        
+
         test(
             model=model,
             valloader=valloader,
