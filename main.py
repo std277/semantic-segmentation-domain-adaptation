@@ -10,6 +10,7 @@ import torch.optim as optim
 from torch.optim import Adam, SGD
 from torch.optim.lr_scheduler import LambdaLR, StepLR, CosineAnnealingLR
 from torch.backends import cudnn
+from torch.cuda.amp import GradScaler, autocast
 
 from albumentations import Compose, Resize, Normalize, HorizontalFlip, VerticalFlip, RandomRotate90, ShiftScaleRotate, RandomBrightnessContrast
 from albumentations.pytorch import ToTensorV2
@@ -212,7 +213,12 @@ def get_scheduler(optimizer, args):
 
 def train(model, trainloader, loss_function, optimizer, scheduler, epochs, device, monitor, res_dir):
     cudnn.benchmark = True
-    
+
+    if device == "cuda":
+        scaler = GradScaler(device)
+    else:
+        scaler = None
+
     train_losses = []
     learning_rates = []
 
@@ -232,19 +238,25 @@ def train(model, trainloader, loss_function, optimizer, scheduler, epochs, devic
 
             optimizer.zero_grad()
 
-            logits = model(images)
-            # outputs = torch.argmax(torch.softmax(logits, dim=1), dim=1)
-            
-            loss = loss_function(logits, masks)
+            if scaler:
+                with autocast():
+                    logits = model(images)
+                    # outputs = torch.argmax(torch.softmax(logits, dim=1), dim=1)
+                    loss = loss_function(logits, masks)
+
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                logits = model(images)
+                # outputs = torch.argmax(torch.softmax(logits, dim=1), dim=1)
+                loss = loss_function(logits, masks)
+                loss.backward()
+                # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                optimizer.step()
             
             cumulative_loss += loss.item()
             count_loss += 1
-
-            loss.backward()
-
-            # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            optimizer.step()
-
             train_loss = cumulative_loss / count_loss
 
             monitor.update(
