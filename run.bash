@@ -4,7 +4,7 @@ python3 main.py \
     --model_name DeepLabV2_ResNet101 \
     --version 0 \
     --source_domain Rural \
-    --batch_size 8 \
+    --batch_size 4 \
     --optimizer SGD \
     --scheduler PolynomialLR \
     --lr 0.01 \
