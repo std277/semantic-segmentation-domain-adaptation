@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 import torch.optim as optim
 from torch.optim import Adam, SGD
 from torch.optim.lr_scheduler import LambdaLR, StepLR, CosineAnnealingLR
+from torch.backends import cudnn
 
 from albumentations import Compose, Resize, Normalize, HorizontalFlip, VerticalFlip, RandomRotate90, ShiftScaleRotate, RandomBrightnessContrast
 from albumentations.pytorch import ToTensorV2
@@ -71,6 +72,36 @@ def get_device():
     print(f"Device: {device}")
 
     return device
+
+
+def log_training_setup(model, loss_function, optimizer, scheduler, args, monitor):
+    monitor.log(f"Model:\n{model}\n")
+
+    monitor.log(f"Loss function:\n{loss_function}\n")
+
+    monitor.log(f"Optimizer:\n{args.optimizer} (")
+    if args.optimizer == "Adam":
+        monitor.log(f"    lr: {args.lr}")
+    elif args.optimizer == "SGD":
+        monitor.log(f"    lr: {args.lr}")
+        monitor.log(f"    momentum: {args.momentum}")
+        monitor.log(f"    weight_decay: {args.weight_decay}")
+    monitor.log(")\n")
+
+    monitor.log(f"Scheduler:\n{args.scheduler} (")
+    if args.scheduler == "ConstantLR":
+        monitor.log(f"    lr: {args.lr}")
+    elif args.scheduler == "StepLR":
+        monitor.log(f"    lr: {args.lr}")
+        monitor.log(f"    step_size: {args.step_size}")
+        monitor.log(f"    gamma: {args.gamma}")
+    elif args.scheduler == "CosineAnnealingLR":
+        monitor.log(f"    lr: {args.lr}")
+        monitor.log(f"    t_max: {args.epochs}")
+    elif args.scheduler == "PolynomialLR":
+        monitor.log(f"    lr: {args.lr}")
+        monitor.log(f"    power: {args.power}")
+    monitor.log(")\n")
 
 
 def dataset_preprocessing(domain, batch_size):
@@ -170,54 +201,104 @@ def get_scheduler(optimizer, args):
     return scheduler
 
 
+
+
+
+
+
+
+
+
+
 def train(model, trainloader, loss_function, optimizer, scheduler, epochs, device, monitor, res_dir):
+    cudnn.benchmark = True
+    
+    train_losses = []
     learning_rates = []
 
     for e in range(epochs):
-        lr = scheduler.get_last_lr()[0]
-        learning_rates.append(lr)
+        monitor.start(desc=f"Epoch {e + 1}/{epochs}", max_progress=len(trainloader))
+
+        learning_rate = scheduler.get_last_lr()[0]
+        learning_rates.append(learning_rate)
+
+        train_loss = 0.0
+        cumulative_loss = 0.0
+        count_loss = 0
+
+        model.train()
+        for i, (images, masks) in enumerate(trainloader):
+            images, masks = images.to(device), masks.to(device)
+
+            optimizer.zero_grad()
+
+            logits = model(images)
+            # outputs = torch.argmax(torch.softmax(logits, dim=1), dim=1)
+            
+            loss = loss_function(logits, masks)
+            
+            cumulative_loss += loss.item()
+            count_loss += 1
+
+            loss.backward()
+
+            # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            optimizer.step()
+
+            train_loss = cumulative_loss / count_loss
+
+            monitor.update(
+                i + 1,
+                learning_rate=f"{learning_rate:.5f}",
+                train_loss=f"{train_loss:.4f}",
+            )
+
+        train_losses.append(train_loss)
+        monitor.stop()
 
         scheduler.step()
 
-    plot_learning_rate(learning_rates, res_dir)
+        save_model(model, f"{res_dir}/weights/last.pt")
+
+        plot_loss(train_losses, res_dir)
+        plot_learning_rate(learning_rates, res_dir)
+
+    monitor.print_stats()
+
+
+def test(model, valloader, device, monitor):
+    monitor.start(desc=f"Testing", max_progress=len(valloader))
+
+    inference_times = []
+
+    model.eval()
+    with torch.no_grad():
+        for i, (images, masks) in enumerate(valloader):
+            images, masks = images.to(device), masks.to(device)
+
+            start_time = time.perf_counter()
+            logits = model(images)
+            end_time = time.perf_counter()
+
+            batch_inference_time = (end_time - start_time) / images.size(0)
+            inference_times.append(batch_inference_time)
+
+            monitor.update(
+                i + 1,
+            )
+
+    monitor.stop()
+
+    mean_inference_time = np.mean(inference_times)
+    std_inference_time = np.std(inference_times)
+
+    # monitor.log(f"Accuracy on test images: {100 * test_accuracy:.3f} %")
+    monitor.log(f"Mean inference time: {mean_inference_time * 1000:.3f} ms")
+    monitor.log(f"Standard deviation of inference time: {std_inference_time * 1000:.3f} ms")
 
 
 
-def test():
-    pass
 
-
-
-
-
-def log_training_setup(model, loss_function, optimizer, scheduler, args, monitor):
-    monitor.log(f"Model:\n{model}\n")
-
-    monitor.log(f"Loss function:\n{loss_function}\n")
-
-    monitor.log(f"Optimizer:\n{args.optimizer} (")
-    if args.optimizer == "Adam":
-        monitor.log(f"    lr: {args.lr}")
-    elif args.optimizer == "SGD":
-        monitor.log(f"    lr: {args.lr}")
-        monitor.log(f"    momentum: {args.momentum}")
-        monitor.log(f"    weight_decay: {args.weight_decay}")
-    monitor.log(")\n")
-
-    monitor.log(f"Scheduler:\n{args.scheduler} (")
-    if args.scheduler == "ConstantLR":
-        monitor.log(f"    lr: {args.lr}")
-    elif args.scheduler == "StepLR":
-        monitor.log(f"    lr: {args.lr}")
-        monitor.log(f"    step_size: {args.step_size}")
-        monitor.log(f"    gamma: {args.gamma}")
-    elif args.scheduler == "CosineAnnealingLR":
-        monitor.log(f"    lr: {args.lr}")
-        monitor.log(f"    t_max: {args.epochs}")
-    elif args.scheduler == "PolynomialLR":
-        monitor.log(f"    lr: {args.lr}")
-        monitor.log(f"    power: {args.power}")
-    monitor.log(")\n")
 
 
 
@@ -271,7 +352,13 @@ def main(args):
 
 
         test_monitor.log(f"Model: {args.model_name}")
-        # test(...)
+        
+        test(
+            model=model,
+            valloader=valloader,
+            device=device,
+            monitor=test_monitor
+        )
 
 
 
@@ -319,22 +406,6 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--source_domain",
-        type=str,
-        choices=domains_choices,
-        default="Rural",
-        help=f"Specify the source domain for training.",
-    )
-
-    parser.add_argument(
-        "--target_domain",
-        type=str,
-        choices=domains_choices,
-        default="Rural",
-        help=f"Specify the target domain for testing.",
-    )
-
-    parser.add_argument(
         "--model_name",
         type=str,
         choices=models_choices,
@@ -357,9 +428,25 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        "--source_domain",
+        type=str,
+        choices=domains_choices,
+        default="Rural",
+        help=f"Specify the source domain for training.",
+    )
+
+    parser.add_argument(
+        "--target_domain",
+        type=str,
+        choices=domains_choices,
+        default="Rural",
+        help=f"Specify the target domain for testing.",
+    )
+
+    parser.add_argument(
         "--batch_size",
         type=int,
-        default=128,
+        default=8,
         help=f"Specify the batch size.",
     )
     parser.add_argument(

@@ -56,11 +56,12 @@ class LoveDADataset(Dataset):
             mask = cv2.imread(mask_path, cv2.IMREAD_UNCHANGED)
             mask = mask - 1
         else:
-            mask = torch.zeros((512, 512), dtype=torch.uint8)
+            mask = torch.zeros((512, 512), dtype=torch.long)
 
         if self.dataset_type != 'Test':
             transformation = self.transform(image=image, mask=mask)
             image, mask = transformation['image'], transformation['mask']
+            mask = mask.long()
         else:
             transformation = self.transform(image=image)
             image = transformation['image']

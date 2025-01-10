@@ -1,10 +1,10 @@
 # Train
 python3 main.py \
     --train \
-    --source_domain Rural \
     --model_name DeepLabV2_ResNet101 \
     --version 0 \
-    --batch_size 4 \
+    --source_domain Rural \
+    --batch_size 8 \
     --optimizer SGD \
     --scheduler PolynomialLR \
     --lr 0.01 \
@@ -14,7 +14,7 @@ python3 main.py \
 # Test
 # python3 main.py \
 #     --test \
-#     --target_domain Rural \
 #     --model_name DeepLabV2_ResNet101 \
 #     --version 0 \
-#     --test_model_file best.pt
+#     --test_model_file last.pt \
+#     --target_domain Rural

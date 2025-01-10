@@ -162,6 +162,16 @@ def inspect_dataset(trainloader, valloader, testloader):
 #     plt.savefig(f"{base_dir}/plots/learning_rate_{model_number}.pdf")
 #     plt.close(fig)
 
+def plot_loss(train_losses, res_dir):
+    fig = plt.figure()
+    plt.title("Loss")
+    plt.ylabel("Loss")
+    plt.xlabel("Epoch")
+    plt.plot(train_losses, label="Train Loss")
+    # plt.plot(val_losses, label="Val Loss")
+    plt.legend()
+    plt.savefig(f"{res_dir}/plots/loss.pdf")
+    plt.close(fig)
 
 def plot_learning_rate(learning_rates, res_dir):
     fig = plt.figure()
