@@ -82,13 +82,13 @@ def get_device():
 
 
 def log_training_setup(model, loss_function, optimizer, scheduler, device, args, monitor):
+    monitor.log(f"Model:\n{model}\n")
+
     monitor.log(f"Device:\n{device}\n")
 
     monitor.log(f"Dataset source domain:\n{args.source_domain}\n")
 
     monitor.log(f"Batch size:\n{args.batch_size}\n")
-
-    monitor.log(f"Model:\n{model}\n")
 
     monitor.log(f"Loss function:\n{loss_function}\n")
 

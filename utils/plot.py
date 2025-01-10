@@ -40,7 +40,7 @@ def plot_image(image, mask=None, alpha=1., title=None, show=True):
         if title is not None:
             fig.suptitle(title)
 
-        np_image = image.numpy().transpose((1, 2, 0)) * STD + MEAN
+        np_image = image.numpy().transpose((1, 2, 0)) * np.array(STD) + np.array(MEAN)
         axes[0].imshow(np_image)
         axes[0].axis("off")
         axes[0].set_title("Original Image")
@@ -63,7 +63,7 @@ def plot_image(image, mask=None, alpha=1., title=None, show=True):
         if title is not None:
             plt.title(title)
 
-        np_image = image.numpy().transpose((1, 2, 0)) * STD + MEAN
+        np_image = image.numpy().transpose((1, 2, 0)) * np.array(STD) + np.array(MEAN)
         plt.imshow(np_image)
 
         if mask is not None:
@@ -95,7 +95,7 @@ def plot_batch(images, masks=None, alpha=0.3, title=None, show=True):
     if masks is not None:
         for i, (image, mask) in enumerate(zip(images, masks)):
             axes[i].axis("off")
-            np_image = image.numpy().transpose((1, 2, 0)) * STD + MEAN
+            np_image = image.numpy().transpose((1, 2, 0)) * np.array(STD) + np.array(MEAN)
             np_mask = mask.numpy()
             np_mask_color_image = get_mask_color_image(np_image, np_mask)
             axes[i].imshow(np_image)
@@ -107,7 +107,7 @@ def plot_batch(images, masks=None, alpha=0.3, title=None, show=True):
     else:
         for i, image in enumerate(images):
             axes[i].axis("off")
-            np_image = image.numpy().transpose((1, 2, 0)) * STD + MEAN
+            np_image = image.numpy().transpose((1, 2, 0)) * np.array(STD) + np.array(MEAN)
             axes[i].imshow(np_image)
 
     if show:
