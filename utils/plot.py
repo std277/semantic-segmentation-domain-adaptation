@@ -127,3 +127,49 @@ def inspect_dataset(trainloader, valloader, testloader):
             plot_batch(images, masks if type!="Test" else None, alpha=0.3, title=f"{type} image batch", show=False)
 
             plt.show()
+
+
+
+# def plot_training_metrics(
+#     train_losses, val_losses, train_accuracies, val_accuracies, learning_rates, model_number, base_dir
+# ):
+#     fig = plt.figure()
+#     plt.title("Loss")
+#     plt.ylabel("Loss")
+#     plt.xlabel("Epoch")
+#     plt.plot(train_losses, label="Train Loss")
+#     plt.plot(val_losses, label="Val Loss")
+#     plt.legend()
+#     plt.savefig(f"{base_dir}/plots/loss_{model_number}.pdf")
+#     plt.close(fig)
+
+#     fig = plt.figure()
+#     plt.title("Accuracy")
+#     plt.ylabel("Accuracy")
+#     plt.xlabel("Epoch")
+#     plt.plot(train_accuracies, label="Train Accuracy")
+#     plt.plot(val_accuracies, label="Val Accuracy")
+#     plt.legend()
+#     plt.savefig(f"{base_dir}/plots/accuracy_{model_number}.pdf")
+#     plt.close(fig)
+
+#     fig = plt.figure()
+#     plt.title("Learning rate")
+#     plt.ylabel("learning rate")
+#     plt.xlabel("Epoch")
+#     plt.plot(learning_rates, label="Learning Rate")
+#     plt.legend()
+#     plt.savefig(f"{base_dir}/plots/learning_rate_{model_number}.pdf")
+#     plt.close(fig)
+
+
+def plot_scheduler(learning_rates, res_dir):
+    fig = plt.figure()
+    plt.title("Learning rate")
+    plt.ylabel("learning rate")
+    plt.xlabel("Epoch")
+    plt.plot(learning_rates, label="Learning Rate")
+    plt.legend()
+    plt.savefig(f"{res_dir}/plots/learning_rate.pdf")
+    plt.close(fig)
+

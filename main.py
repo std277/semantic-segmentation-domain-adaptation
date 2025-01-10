@@ -7,6 +7,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 import torch.optim as optim
+from torch.optim import Adam, SGD
+from torch.optim.lr_scheduler import LambdaLR, StepLR, CosineAnnealingLR
 
 from albumentations import Compose, Resize, Normalize, HorizontalFlip, VerticalFlip, RandomRotate90, ShiftScaleRotate, RandomBrightnessContrast
 from albumentations.pytorch import ToTensorV2
@@ -120,9 +122,9 @@ def get_loss_function():
 
 def get_optimizer(model, args):
     if args.optimizer == "Adam":
-        optimizer = optim.Adam(model.parameters(), lr=args.lr)
+        optimizer = Adam(model.parameters(), lr=args.lr)
     elif args.optimizer == "SGD":
-        optimizer = optim.SGD(
+        optimizer = SGD(
             model.parameters(),
             lr=args.lr,
             momentum=args.momentum,
@@ -136,16 +138,31 @@ def get_optimizer(model, args):
 
 def get_scheduler(optimizer, args):
     if args.scheduler == "ConstantLR":
-        scheduler = torch.optim.lr_scheduler.LambdaLR(
-            optimizer, lr_lambda=lambda epoch: 1.0
+        scheduler = LambdaLR(
+            optimizer,
+            lr_lambda=lambda epoch: 1.0
         )
     elif args.scheduler == "StepLR":
-        scheduler = torch.optim.lr_scheduler.StepLR(
-            optimizer, step_size=args.step_size, gamma=args.gamma
+        scheduler = StepLR(
+            optimizer,
+            step_size=args.step_size,
+            gamma=args.gamma
         )
     elif args.scheduler == "CosineAnnealingLR":
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=args.epochs
+        scheduler = CosineAnnealingLR(
+            optimizer,
+            T_max=args.epochs
+        )
+    elif args.scheduler == "PolynomialLR":
+        max_iters = args.epochs
+        power = args.power
+
+        def polynomial_lr(current_iter):
+            return (1 - current_iter / max_iters)**power
+        
+        scheduler = LambdaLR(
+            optimizer,
+            lr_lambda=polynomial_lr
         )
     else:
         raise Exception(f"Scheduler {args.scheduler} doesn't exist")
@@ -153,12 +170,59 @@ def get_scheduler(optimizer, args):
     return scheduler
 
 
-def train():
-    pass
+def train(model, trainloader, loss_function, optimizer, scheduler, epochs, device, monitor, res_dir):
+    learning_rates = []
+
+    for e in range(epochs):
+        lr = scheduler.get_last_lr()[0]
+        learning_rates.append(lr)
+
+        scheduler.step()
+
+    plot_scheduler(learning_rates, res_dir)
+
 
 
 def test():
     pass
+
+
+
+
+
+def log_training_setup(model, loss_function, optimizer, scheduler, args, monitor):
+    monitor.log(f"Model:\n{model}\n")
+
+    monitor.log(f"Loss function:\n{loss_function}\n")
+
+    monitor.log(f"Optimizer:\n{args.optimizer} (")
+    if args.optimizer == "Adam":
+        monitor.log(f"    lr: {args.lr}")
+    elif args.optimizer == "SGD":
+        monitor.log(f"    lr: {args.lr}")
+        monitor.log(f"    momentum: {args.momentum}")
+        monitor.log(f"    weight_decay: {args.weight_decay}")
+    monitor.log(")\n")
+
+    monitor.log(f"Scheduler:\n{args.scheduler} (")
+    if args.scheduler == "ConstantLR":
+        monitor.log(f"    lr: {args.lr}")
+    elif args.scheduler == "StepLR":
+        monitor.log(f"    lr: {args.lr}")
+        monitor.log(f"    step_size: {args.step_size}")
+        monitor.log(f"    gamma: {args.gamma}")
+    elif args.scheduler == "CosineAnnealingLR":
+        monitor.log(f"    lr: {args.lr}")
+        monitor.log(f"    t_max: {args.epochs}")
+    elif args.scheduler == "PolynomialLR":
+        monitor.log(f"    lr: {args.lr}")
+        monitor.log(f"    power: {args.power}")
+    monitor.log(")\n")
+
+
+
+
+
 
 
 def main(args):
@@ -183,17 +247,19 @@ def main(args):
         optimizer = get_optimizer(model, args)
         scheduler = get_scheduler(optimizer, args)
 
+        log_training_setup(model, loss_function, optimizer, scheduler, args, train_monitor)
 
-        train_monitor.log(f"Model:\n{model}\n")
-        train_monitor.log(f"Loss function:\n{loss_function}\n")
-        train_monitor.log(f"Optimizer:\n{optimizer}\n")
-        train_monitor.log(f"Scheduler:\n{scheduler.__class__.__name__}")
-        for attr in dir(scheduler):
-            if not attr.startswith("_") and not callable(getattr(scheduler, attr)):
-                train_monitor.log(f"{attr}: {getattr(scheduler, attr)}")
-        train_monitor.log("\n")
-
-        # train(...)
+        train(
+            model=model,
+            trainloader=trainloader,
+            loss_function=loss_function,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            epochs=args.epochs,
+            device=device,
+            monitor=train_monitor,
+            res_dir=res_dir
+        )
 
 
 
@@ -229,7 +295,8 @@ if __name__ == "__main__":
     schedulers_choices = [
         "ConstantLR",
         "StepLR",
-        "CosineAnnealingLR"
+        "CosineAnnealingLR",
+        "PolynomialLR"
     ]
 
     store_choices = [
@@ -313,31 +380,37 @@ if __name__ == "__main__":
         "--lr",
         type=float,
         default=0.01,
-        help=f"Specify the learning rate.",
+        help=f"Specify the initial learning rate.",
     )
     parser.add_argument(
         "--momentum",
         type=float,
         default=0.9,
-        help=f"Specify the momentum.",
+        help=f"Specify the momentum for SGD optimizer.",
     )
     parser.add_argument(
         "--weight_decay",
         type=float,
         default=0.0005,
-        help=f"Specify the weight decay.",
+        help=f"Specify the weight decay for SGD optimizer.",
     )
     parser.add_argument(
         "--step_size",
         type=int,
         default=10,
-        help=f"Specify the step size.",
+        help=f"Specify the step size for StepLR scheduler.",
     )
     parser.add_argument(
         "--gamma",
         type=float,
         default=0.1,
-        help=f"Specify gamma.",
+        help=f"Specify gamma for StepLR scheduler.",
+    )
+    parser.add_argument(
+        "--power",
+        type=float,
+        default=0.9,
+        help=f"Specify power for PolynomialLR scheduler.",
     )
     parser.add_argument(
         "--epochs",

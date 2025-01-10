@@ -6,8 +6,9 @@ python3 main.py \
     --version 0 \
     --batch_size 4 \
     --optimizer SGD \
-    --scheduler CosineAnnealingLR \
+    --scheduler PolynomialLR \
     --lr 0.01 \
+    --power 0.6 \
     --epochs 20
 
 # Test
