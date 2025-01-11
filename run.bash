@@ -59,8 +59,9 @@
 python3 main.py \
     --train \
     --model_name PIDNet_S \
-    --version 0 \
+    --version 1 \
     --source_domain Rural \
+    --data_augmentation \
     --batch_size 8 \
     --optimizer SGD \
     --scheduler PolynomialLR \
@@ -73,7 +74,7 @@ python3 main.py \
 # python3 main.py \
 #     --test \
 #     --model_name PIDNet_S \
-#     --version 0 \
+#     --version 1 \
 #     --test_model_file last_0.pt \
 #     --target_domain Rural \
 #     --batch_size 8
@@ -83,7 +84,7 @@ python3 main.py \
 # python3 main.py \
 #     --test \
 #     --model_name PIDNet_S \
-#     --version 0 \
+#     --version 1 \
 #     --test_model_file best_0.pt \
 #     --target_domain Rural \
 #     --batch_size 8

@@ -126,6 +126,12 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--data_augmentation",
+        action="store_true",
+        help="Performs data augmentation on dataset."
+    )
+
+    parser.add_argument(
         "--batch_size",
         type=int,
         default=8,
@@ -350,13 +356,26 @@ def log_testing_setup(device, args, monitor):
     monitor.log(f"Dataset target domain: {args.target_domain}\n")
 
 
-def dataset_preprocessing(domain, batch_size):
+def dataset_preprocessing(domain, batch_size, data_augmentation):
     # Define transforms
-    transform = Compose([
-        Resize(512, 512),
-        Normalize(mean=MEAN, std=STD),
-        ToTensorV2(),
-    ])
+
+    if data_augmentation:
+        transform = Compose([
+            Resize(512, 512),
+            Normalize(mean=MEAN, std=STD),
+            HorizontalFlip(p=0.2),
+            VerticalFlip(p=0.2),
+            RandomRotate90(p=0.2),
+            ShiftScaleRotate(p=0.2),
+            RandomBrightnessContrast(p=0.2),
+            ToTensorV2(),
+        ])
+    else:
+        transform = Compose([
+            Resize(512, 512),
+            Normalize(mean=MEAN, std=STD),
+            ToTensorV2(),
+        ])
 
     # Define the Dataset object for training, validation and testing
     traindataset = LoveDADataset(dataset_type="Train", domain=domain, transform=transform, root_dir='data')
@@ -710,7 +729,8 @@ def main():
 
         trainloader, valloader, _ = dataset_preprocessing(
             domain=args.source_domain,
-            batch_size=args.batch_size
+            batch_size=args.batch_size,
+            data_augmentation=args.data_augmentation
         )
         
         # inspect_dataset(trainloader, valloader, testloader)
@@ -759,7 +779,8 @@ def main():
 
         trainloader, valloader, _ = dataset_preprocessing(
             domain=args.target_domain,
-            batch_size=args.batch_size
+            batch_size=args.batch_size,
+            data_augmentation=False
         )
 
         model = get_model(args.model_name, device)
@@ -768,6 +789,7 @@ def main():
         log_testing_setup(device, args, test_monitor)
 
         test(
+            model_name=args.model_name,
             model=model,
             valloader=valloader,
             device=device,
