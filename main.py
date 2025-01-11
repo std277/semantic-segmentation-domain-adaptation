@@ -10,6 +10,7 @@ import time
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 import torch.optim as optim
 from torch.optim import Adam, SGD
@@ -23,541 +24,11 @@ from albumentations.pytorch import ToTensorV2
 from fvcore.nn import FlopCountAnalysis, flop_count_table
 
 from datasets import LoveDADataset, MEAN, STD, NUM_CLASSES
-from models import DeepLabV2_ResNet101
+from models import DeepLabV2_ResNet101, PIDNet_S, PIDNet_M, PIDNet_L
 from utils import *
 
 
-def set_seed(seed):
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-
-
-def make_results_dir(store, model_name, version, resume):
-    if store == "drive":
-        res_dir = "/content/drive/MyDrive/res"
-    else:
-        res_dir = "res"
-
-    os.makedirs(res_dir, exist_ok=True)
-
-    dir_name = f"{model_name}_{version}"
-    if not resume:
-        for file in os.listdir(res_dir):
-            if file == dir_name:
-                raise Exception(f"Directory {dir_name} already exists")
-
-    res_dir = f"{res_dir}/{dir_name}"
-    if not resume:
-        sub_dirs = [res_dir, f"{res_dir}/weights", f"{res_dir}/plots"]
-        for sub_dir in sub_dirs:
-            os.makedirs(sub_dir, exist_ok=True)
-
-    return res_dir
-
-def get_results_dir(store, model_name, version):
-    if store == "drive":
-        res_dir = "/content/drive/MyDrive/res"
-    else:
-        res_dir = "res"
-
-    dir_name = f"{model_name}_{version}"
-    res_dir = f"{res_dir}/{dir_name}"
-
-    return res_dir
-
-
-def get_model_number(res_dir):
-    model_number = 0
-
-    model_found = False
-    pattern = r'last_(\d+)\.pt'
-    for file in os.listdir(f"{res_dir}/weights"):
-        match = re.match(pattern, file)
-        if match:
-            model_found = True
-            n = int(match.group(1))
-            if n > model_number:
-                model_number = n
-
-    if model_found:
-        model_number += 1
-    
-    return model_number
-
-
-def get_device():
-    if torch.cuda.is_available():
-        print("CUDA available")
-        print(f"Number of devices: {torch.cuda.device_count()}")
-        for dev in range(torch.cuda.device_count()):
-            print(f"Device {dev}:")
-            print(f"\tName: {torch.cuda.get_device_name(dev)}")
-    else:
-        print("CUDA not available")
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Device: {device}")
-
-    return device
-
-
-def log_training_setup(model, loss_function, optimizer, scheduler, device, args, monitor):
-    monitor.log(f"Model:\n{model}\n")
-
-    monitor.log(f"Device: {device}")
-    if torch.cuda.is_available():
-        device_name = torch.cuda.get_device_name(torch.cuda.current_device())
-        monitor.log(f"Cuda device name: {device_name}")
-
-
-    monitor.log(f"Dataset source domain: {args.source_domain}")
-
-    monitor.log(f"Batch size: {args.batch_size}\n")
-
-    monitor.log(f"Loss function: {loss_function}\n")
-
-    monitor.log(f"Optimizer:\n{args.optimizer} (")
-    if args.optimizer == "Adam":
-        monitor.log(f"    lr: {args.lr}")
-    elif args.optimizer == "SGD":
-        monitor.log(f"    lr: {args.lr}")
-        monitor.log(f"    momentum: {args.momentum}")
-        monitor.log(f"    weight_decay: {args.weight_decay}")
-    monitor.log(")\n")
-
-    monitor.log(f"Scheduler:\n{args.scheduler} (")
-    if args.scheduler == "ConstantLR":
-        monitor.log(f"    lr: {args.lr}")
-    elif args.scheduler == "StepLR":
-        monitor.log(f"    lr: {args.lr}")
-        monitor.log(f"    step_size: {args.step_size}")
-        monitor.log(f"    gamma: {args.gamma}")
-    elif args.scheduler == "CosineAnnealingLR":
-        monitor.log(f"    lr: {args.lr}")
-        monitor.log(f"    t_max: {args.epochs}")
-    elif args.scheduler == "PolynomialLR":
-        monitor.log(f"    lr: {args.lr}")
-        monitor.log(f"    power: {args.power}")
-    monitor.log(")\n")
-
-
-
-def log_testing_setup(device, args, monitor):
-    monitor.log(f"Model test file: {args.test_model_file}")
-    monitor.log(f"Device: {device}")
-    if torch.cuda.is_available():
-        device_name = torch.cuda.get_device_name(torch.cuda.current_device())
-        monitor.log(f"Cuda device name: {device_name}")
-    monitor.log(f"Dataset target domain: {args.target_domain}\n")
-
-
-def dataset_preprocessing(domain, batch_size):
-    # Define transforms
-    transform = Compose([
-        Resize(512, 512),
-        Normalize(mean=MEAN, std=STD),
-        ToTensorV2(),
-    ])
-
-    # Define the Dataset object for training, validation and testing
-    traindataset = LoveDADataset(dataset_type="Train", domain=domain, transform=transform, root_dir='data')
-    valdataset = LoveDADataset(dataset_type="Val", domain=domain, transform=transform, root_dir='data')
-    testdataset = LoveDADataset(dataset_type="Test", domain=domain, transform=transform, root_dir='data')
-
-    # Define the DataLoaders
-    trainloader = DataLoader(
-        traindataset, batch_size=batch_size, shuffle=True, num_workers=2, drop_last=True)
-    valloader = DataLoader(valdataset, batch_size=batch_size, num_workers=2)
-    testloader = DataLoader(testdataset, batch_size=batch_size, num_workers=2)
-
-    return trainloader, valloader, testloader
-
-
-def get_model(model_name, device):
-    if model_name == "DeepLabV2_ResNet101":
-        model = DeepLabV2_ResNet101(
-            num_classes=7, pretrain=True, pretrain_model_path='./weights_pretrained/deeplab_resnet_pretrained_imagenet.pth')
-    else:
-        raise Exception(f"Model {model_name} doesn't exist")
-
-    model = model.to(device)
-
-    return model
-
-
-def save_model(model, file_name):
-    torch.save(model.state_dict(), file_name)
-
-
-def load_model(model, file_name, device):
-    model.load_state_dict(torch.load(file_name, map_location=torch.device(device), weights_only=True))
-    return model
-
-
-def get_loss_function():
-    return nn.CrossEntropyLoss(ignore_index=255)
-
-
-def get_optimizer(model, args):
-    if args.optimizer == "Adam":
-        optimizer = Adam(model.parameters(), lr=args.lr)
-    elif args.optimizer == "SGD":
-        optimizer = SGD(
-            model.parameters(),
-            lr=args.lr,
-            momentum=args.momentum,
-            weight_decay=args.weight_decay,
-        )
-    else:
-        raise Exception(f"Optimizer {args.optimizer} doesn't exist")
-    
-    return optimizer
-
-
-def get_scheduler(optimizer, args):
-    if args.scheduler == "ConstantLR":
-        scheduler = LambdaLR(
-            optimizer,
-            lr_lambda=lambda epoch: 1.0
-        )
-    elif args.scheduler == "StepLR":
-        scheduler = StepLR(
-            optimizer,
-            step_size=args.step_size,
-            gamma=args.gamma
-        )
-    elif args.scheduler == "CosineAnnealingLR":
-        scheduler = CosineAnnealingLR(
-            optimizer,
-            T_max=args.epochs
-        )
-    elif args.scheduler == "PolynomialLR":
-        max_iters = args.epochs
-        power = args.power
-
-        def polynomial_lr(current_iter):
-            return (1 - current_iter / max_iters)**power
-        
-        scheduler = LambdaLR(
-            optimizer,
-            lr_lambda=polynomial_lr
-        )
-    else:
-        raise Exception(f"Scheduler {args.scheduler} doesn't exist")
-
-    return scheduler
-
-
-def compute_mIoU(predictions, masks, num_classes):
-    iou_per_class = torch.zeros(num_classes, dtype=torch.float32)
-
-    predictions = predictions.view(-1)
-    masks = masks.view(-1)
-
-    for cls in range(num_classes):
-        intersection = torch.sum((predictions == cls) & (masks == cls))
-        union = torch.sum((predictions == cls) | (masks == cls))
-
-        if union == 0:
-            iou_per_class[cls] = float('nan')
-        else:
-            iou_per_class[cls] = intersection / union
-
-    mean_iou = torch.nanmean(iou_per_class).item()
-
-    return mean_iou
-
-
-
-
-
-
-
-def train(model, model_number, trainloader, valloader, loss_function, optimizer, scheduler, epochs, init_epoch, patience, device, monitor, res_dir):
-    cudnn.benchmark = True
-
-    if device.type == "cuda":
-        scaler = GradScaler("cuda")
-    else:
-        scaler = None
-
-    train_losses = []
-    val_losses = []
-    train_mIoUs = []
-    val_mIoUs = []
-    learning_rates = []
-
-    best_val_loss = None
-    patience_counter = 0
-
-    for e in range(init_epoch-1, epochs):
-        # Training
-        monitor.start(desc=f"Epoch {e + 1}/{epochs}", max_progress=len(trainloader))
-
-        learning_rate = scheduler.get_last_lr()[0]
-        learning_rates.append(learning_rate)
-
-        cumulative_loss = 0.0
-        cumulative_mIoU = 0.0
-        count = 0
-        train_mIoU = 0.0
-
-        model.train()
-        for i, (images, masks) in enumerate(trainloader):
-            images, masks = images.to(device), masks.to(device)
-
-            optimizer.zero_grad()
-
-            if scaler:
-                with autocast("cuda"):
-                    logits = model(images)
-                    loss = loss_function(logits, masks)
-
-                scaler.scale(loss).backward()
-                scaler.step(optimizer)
-                scaler.update()
-            else:
-                logits = model(images)
-                loss = loss_function(logits, masks)
-                loss.backward()
-                # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-                optimizer.step()
-
-            predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
-            
-            count += 1
-
-            cumulative_loss += loss.item()
-            train_loss = cumulative_loss / count
-
-            mIoU = compute_mIoU(predictions, masks, NUM_CLASSES)
-            cumulative_mIoU += mIoU
-            train_mIoU = cumulative_mIoU / count
-
-            monitor.update(
-                i + 1,
-                learning_rate=f"{learning_rate:.5f}",
-                train_loss=f"{train_loss:.4f}",
-                train_mIoU=f"{train_mIoU:.4f}",
-            )
-
-        train_losses.append(train_loss)
-        train_mIoUs.append(train_mIoU)
-
-        monitor.stop()
-
-
-
-
-        # Validation
-        monitor.start(desc=f"Validation", max_progress=len(valloader))
-
-        cumulative_loss = 0.0
-        cumulative_mIoU = 0.0
-        count = 0
-        val_mIoU = 0.0
-
-        model.eval()
-        with torch.no_grad():
-            for i, (images, masks) in enumerate(valloader):
-                images, masks = images.to(device), masks.to(device)
-                logits = model(images)
-                loss = loss_function(logits, masks)
-                
-                predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
-                
-                count += 1
-                
-                cumulative_loss += loss.item()
-                val_loss = cumulative_loss / count
-
-                mIoU = compute_mIoU(predictions, masks, NUM_CLASSES)
-                cumulative_mIoU += mIoU
-                val_mIoU = cumulative_mIoU / count
-            
-                monitor.update(
-                    i + 1,
-                    val_loss=f"{val_loss:.4f}",
-                    val_mIoU=f"{val_mIoU:.4f}",
-                )
-
-        val_losses.append(val_loss)
-        val_mIoUs.append(val_mIoU)
-
-        monitor.stop()
-
-        if best_val_loss is None or val_loss < best_val_loss:
-            save_model(model, f"{res_dir}/weights/best_{model_number}.pt")
-            monitor.log(f"Model saved as best_{model_number}.pt\n")
-            best_val_loss = val_loss
-            patience_counter = 0
-        else:
-            patience_counter += 1
-
-        if patience_counter >= patience:
-            monitor.log(f"Early stopping after {e + 1} epochs\n")
-            break
-
-
-        scheduler.step()
-
-        save_model(model, f"{res_dir}/weights/last_{model_number}.pt")
-
-        plot_loss(train_losses, val_losses, model_number, res_dir)
-        plot_mIoU(train_mIoUs, val_mIoUs, model_number, res_dir)
-        plot_learning_rate(learning_rates, model_number, res_dir)
-
-
-    monitor.print_stats()
-
-
-def test(model, valloader, device, monitor):
-    monitor.start(desc=f"Testing", max_progress=len(valloader))
-
-    flops_count = 0
-    cumulative_mIoU = 0.0
-    count = 0
-    test_mIoU = 0.0
-    inference_times = []
-
-    model.eval()
-    with torch.no_grad():
-        
-        # FLOPs analysis
-        images, _ = next(iter(valloader))
-        images = images.to(device)
-        flops = FlopCountAnalysis(model, images)
-        flops_count = flop_count_table(flops)
-
-        # Testing
-        for i, (images, masks) in enumerate(valloader):
-            images, masks = images.to(device), masks.to(device)
-
-            start_time = time.perf_counter()
-            logits = model(images)
-            end_time = time.perf_counter()
-
-            batch_inference_time = (end_time - start_time) / images.size(0)
-            inference_times.append(batch_inference_time)
-
-            predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
-            
-            count += 1
-
-            mIoU = compute_mIoU(predictions, masks, NUM_CLASSES)
-            cumulative_mIoU += mIoU
-            test_mIoU = cumulative_mIoU / count
-            
-            monitor.update(
-                i + 1,
-                test_mIoU=f"{test_mIoU:.4f}",
-            )
-
-    monitor.stop()
-
-    mean_inference_time = np.mean(inference_times)
-    std_inference_time = np.std(inference_times)
-
-    monitor.log(f"FLOPs:\n{flops_count}\n")
-    monitor.log(f"Mean Intersection over Union on test images: {test_mIoU*100:.3f} %")
-    monitor.log(f"Mean inference time: {mean_inference_time * 1000:.3f} ms")
-    monitor.log(f"Standard deviation of inference time: {std_inference_time * 1000:.3f} ms")
-
-
-
-
-
-
-
-
-
-
-
-def main(args):
-    if args.train and args.test:
-        raise Exception("Both train and test arguments are selected")
-
-    set_seed(args.seed)
-    device = get_device()
-
-    if args.train:
-        res_dir = make_results_dir(args.store, args.model_name, args.version, args.resume)
-
-        file_name = f"{res_dir}/training_log.txt"
-        train_monitor = Monitor(file_name, resume=args.resume)
-
-        trainloader, valloader, _ = dataset_preprocessing(
-            domain=args.source_domain,
-            batch_size=args.batch_size
-        )
-        
-        # inspect_dataset(trainloader, valloader, testloader)
-        # inspect_dataset_masks(trainloader, valloader, testloader)
-
-        model = get_model(args.model_name, device)
-
-        model_number = get_model_number(res_dir)
-        if args.resume:
-            model = load_model(model, f"{res_dir}/weights/last_{model_number-1}.pt", device)
-
-        loss_function = get_loss_function()
-        optimizer = get_optimizer(model, args)
-        scheduler = get_scheduler(optimizer, args)
-
-        if args.resume:
-            for _ in range(args.resume_epoch-1):
-                scheduler.step()
-
-        log_training_setup(model, loss_function, optimizer, scheduler, device, args, train_monitor)
-
-        train(
-            model=model,
-            model_number=model_number,
-            trainloader=trainloader,
-            valloader=valloader,
-            loss_function=loss_function,
-            optimizer=optimizer,
-            scheduler=scheduler,
-            epochs=args.epochs,
-            init_epoch=args.resume_epoch,
-            patience=args.patience,
-            device=device,
-            monitor=train_monitor,
-            res_dir=res_dir
-        )
-
-
-
-
-    if args.test:
-        res_dir = get_results_dir(args.store, args.model_name, args.version)
-
-        file_name = f"{res_dir}/testing_log.txt"
-        resume = os.path.exists(file_name)
-        test_monitor = Monitor(file_name, resume)
-
-        trainloader, valloader, _ = dataset_preprocessing(
-            domain=args.target_domain,
-            batch_size=args.batch_size
-        )
-
-        model = get_model(args.model_name, device)
-        model = load_model(model, f"{res_dir}/weights/{args.test_model_file}", device)
-
-        log_testing_setup(device, args, test_monitor)
-
-        test(
-            model=model,
-            valloader=valloader,
-            device=device,
-            monitor=test_monitor
-        )
-
-
-
-if __name__ == "__main__":
+def parse_args():
     parser = argparse.ArgumentParser(description="CIFAR10 Classification")
 
     domains_choices = [
@@ -567,6 +38,9 @@ if __name__ == "__main__":
 
     models_choices = [
         "DeepLabV2_ResNet101",
+        "PIDNet_S",
+        "PIDNet_M",
+        "PIDNet_L",
     ]
 
     optimizers_choices = [
@@ -746,4 +220,561 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    main(args)
+
+    return args
+
+
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+
+
+def make_results_dir(store, model_name, version, resume):
+    if store == "drive":
+        res_dir = "/content/drive/MyDrive/res"
+    else:
+        res_dir = "res"
+
+    os.makedirs(res_dir, exist_ok=True)
+
+    dir_name = f"{model_name}_{version}"
+    if not resume:
+        for file in os.listdir(res_dir):
+            if file == dir_name:
+                raise Exception(f"Directory {dir_name} already exists")
+
+    res_dir = f"{res_dir}/{dir_name}"
+    if not resume:
+        sub_dirs = [res_dir, f"{res_dir}/weights", f"{res_dir}/plots"]
+        for sub_dir in sub_dirs:
+            os.makedirs(sub_dir, exist_ok=True)
+
+    return res_dir
+
+def get_results_dir(store, model_name, version):
+    if store == "drive":
+        res_dir = "/content/drive/MyDrive/res"
+    else:
+        res_dir = "res"
+
+    dir_name = f"{model_name}_{version}"
+    res_dir = f"{res_dir}/{dir_name}"
+
+    return res_dir
+
+
+def get_model_number(res_dir):
+    model_number = 0
+
+    model_found = False
+    pattern = r'last_(\d+)\.pt'
+    for file in os.listdir(f"{res_dir}/weights"):
+        match = re.match(pattern, file)
+        if match:
+            model_found = True
+            n = int(match.group(1))
+            if n > model_number:
+                model_number = n
+
+    if model_found:
+        model_number += 1
+    
+    return model_number
+
+
+def get_device():
+    if torch.cuda.is_available():
+        print("CUDA available")
+        print(f"Number of devices: {torch.cuda.device_count()}")
+        for dev in range(torch.cuda.device_count()):
+            print(f"Device {dev}:")
+            print(f"\tName: {torch.cuda.get_device_name(dev)}")
+    else:
+        print("CUDA not available")
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Device: {device}")
+
+    return device
+
+
+def log_training_setup(model, loss_function, optimizer, scheduler, device, args, monitor):
+    monitor.log(f"Model: {args.model_name}")
+
+    monitor.log(f"Device: {device}")
+    if torch.cuda.is_available():
+        device_name = torch.cuda.get_device_name(torch.cuda.current_device())
+        monitor.log(f"Cuda device name: {device_name}")
+
+
+    monitor.log(f"Dataset source domain: {args.source_domain}")
+
+    monitor.log(f"Batch size: {args.batch_size}\n")
+
+    monitor.log(f"Loss function: {loss_function}\n")
+
+    monitor.log(f"Optimizer:\n{args.optimizer} (")
+    if args.optimizer == "Adam":
+        monitor.log(f"    lr: {args.lr}")
+    elif args.optimizer == "SGD":
+        monitor.log(f"    lr: {args.lr}")
+        monitor.log(f"    momentum: {args.momentum}")
+        monitor.log(f"    weight_decay: {args.weight_decay}")
+    monitor.log(")\n")
+
+    monitor.log(f"Scheduler:\n{args.scheduler} (")
+    if args.scheduler == "ConstantLR":
+        monitor.log(f"    lr: {args.lr}")
+    elif args.scheduler == "StepLR":
+        monitor.log(f"    lr: {args.lr}")
+        monitor.log(f"    step_size: {args.step_size}")
+        monitor.log(f"    gamma: {args.gamma}")
+    elif args.scheduler == "CosineAnnealingLR":
+        monitor.log(f"    lr: {args.lr}")
+        monitor.log(f"    t_max: {args.epochs}")
+    elif args.scheduler == "PolynomialLR":
+        monitor.log(f"    lr: {args.lr}")
+        monitor.log(f"    power: {args.power}")
+    monitor.log(")\n")
+
+
+
+def log_testing_setup(device, args, monitor):
+    monitor.log(f"Model test file: {args.test_model_file}")
+    monitor.log(f"Device: {device}")
+    if torch.cuda.is_available():
+        device_name = torch.cuda.get_device_name(torch.cuda.current_device())
+        monitor.log(f"Cuda device name: {device_name}")
+    monitor.log(f"Dataset target domain: {args.target_domain}\n")
+
+
+def dataset_preprocessing(domain, batch_size):
+    # Define transforms
+    transform = Compose([
+        Resize(512, 512),
+        Normalize(mean=MEAN, std=STD),
+        ToTensorV2(),
+    ])
+
+    # Define the Dataset object for training, validation and testing
+    traindataset = LoveDADataset(dataset_type="Train", domain=domain, transform=transform, root_dir='data')
+    valdataset = LoveDADataset(dataset_type="Val", domain=domain, transform=transform, root_dir='data')
+    testdataset = LoveDADataset(dataset_type="Test", domain=domain, transform=transform, root_dir='data')
+
+    # Define the DataLoaders
+    trainloader = DataLoader(
+        traindataset, batch_size=batch_size, shuffle=True, num_workers=2, drop_last=True)
+    valloader = DataLoader(valdataset, batch_size=batch_size, num_workers=2)
+    testloader = DataLoader(testdataset, batch_size=batch_size, num_workers=2)
+
+    return trainloader, valloader, testloader
+
+
+def get_model(model_name, device):
+    if model_name == "DeepLabV2_ResNet101":
+        model = DeepLabV2_ResNet101(num_classes=NUM_CLASSES, pretrain=True, pretrain_model_path='./weights_pretrained/deeplab_resnet_pretrained_imagenet.pth')
+    elif model_name == "PIDNet_S":
+        model = PIDNet_S(num_classes=NUM_CLASSES, pretrain=True, pretrain_model_path="./weights_pretrained/pidnet_s_pretrained_imagenet.pth")
+    elif model_name == "PIDNet_M":
+        model = PIDNet_M(num_classes=NUM_CLASSES, pretrain=True, pretrain_model_path="./weights_pretrained/pidnet_m_pretrained_imagenet.pth")
+    elif model_name == "PIDNet_L":
+        model = PIDNet_L(num_classes=NUM_CLASSES, pretrain=True, pretrain_model_path="./weights_pretrained/pidnet_l_pretrained_imagenet.pth")
+    else:
+        raise Exception(f"Model {model_name} doesn't exist")
+
+    model = model.to(device)
+
+    return model
+
+
+def save_model(model, file_name):
+    torch.save(model.state_dict(), file_name)
+
+
+def load_model(model, file_name, device):
+    model.load_state_dict(torch.load(file_name, map_location=torch.device(device), weights_only=True))
+    return model
+
+
+def get_loss_function():
+    return nn.CrossEntropyLoss(ignore_index=255)
+
+
+def get_optimizer(model, args):
+    if args.optimizer == "Adam":
+        optimizer = Adam(model.parameters(), lr=args.lr)
+    elif args.optimizer == "SGD":
+        optimizer = SGD(
+            model.parameters(),
+            lr=args.lr,
+            momentum=args.momentum,
+            weight_decay=args.weight_decay,
+        )
+    else:
+        raise Exception(f"Optimizer {args.optimizer} doesn't exist")
+    
+    return optimizer
+
+
+def get_scheduler(optimizer, args):
+    if args.scheduler == "ConstantLR":
+        scheduler = LambdaLR(
+            optimizer,
+            lr_lambda=lambda epoch: 1.0
+        )
+    elif args.scheduler == "StepLR":
+        scheduler = StepLR(
+            optimizer,
+            step_size=args.step_size,
+            gamma=args.gamma
+        )
+    elif args.scheduler == "CosineAnnealingLR":
+        scheduler = CosineAnnealingLR(
+            optimizer,
+            T_max=args.epochs
+        )
+    elif args.scheduler == "PolynomialLR":
+        max_iters = args.epochs
+        power = args.power
+
+        def polynomial_lr(current_iter):
+            return (1 - current_iter / max_iters)**power
+        
+        scheduler = LambdaLR(
+            optimizer,
+            lr_lambda=polynomial_lr
+        )
+    else:
+        raise Exception(f"Scheduler {args.scheduler} doesn't exist")
+
+    return scheduler
+
+
+def compute_mIoU(predictions, masks, num_classes):
+    iou_per_class = torch.zeros(num_classes, dtype=torch.float32)
+
+    predictions = predictions.view(-1)
+    masks = masks.view(-1)
+
+    for cls in range(num_classes):
+        intersection = torch.sum((predictions == cls) & (masks == cls))
+        union = torch.sum((predictions == cls) | (masks == cls))
+
+        if union == 0:
+            iou_per_class[cls] = float('nan')
+        else:
+            iou_per_class[cls] = intersection / union
+
+    mean_iou = torch.nanmean(iou_per_class).item()
+
+    return mean_iou
+
+
+
+
+
+
+
+def train(model_name, model, model_number, trainloader, valloader, loss_function, optimizer, scheduler, epochs, init_epoch, patience, device, monitor, res_dir):
+    cudnn.benchmark = True
+
+    # if device.type == "cuda":
+    #     scaler = GradScaler("cuda")
+    # else:
+    #     scaler = None
+
+    train_losses = []
+    val_losses = []
+    train_mIoUs = []
+    val_mIoUs = []
+    learning_rates = []
+
+    best_val_loss = None
+    patience_counter = 0
+
+    for e in range(init_epoch-1, epochs):
+        # Training
+        monitor.start(desc=f"Epoch {e + 1}/{epochs}", max_progress=len(trainloader))
+
+        learning_rate = scheduler.get_last_lr()[0]
+        learning_rates.append(learning_rate)
+
+        cumulative_loss = 0.0
+        cumulative_mIoU = 0.0
+        count = 0
+        train_mIoU = 0.0
+
+        model.train()
+        for i, (images, masks) in enumerate(trainloader):
+            images, masks = images.to(device), masks.to(device)
+
+            optimizer.zero_grad()
+
+            # if scaler:
+            #     with autocast("cuda"):
+            #         logits = model(images)
+            #         loss = loss_function(logits, masks)
+
+            #     scaler.scale(loss).backward()
+            #     scaler.step(optimizer)
+            #     scaler.update()
+            # else:
+
+            if model_name in ("DeepLabV2_ResNet101",):
+                logits = model(images)
+            elif model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
+                logits = model(images)
+                logits = F.interpolate(logits[0], size=(512, 512), mode='bilinear', align_corners=False)
+
+            loss = loss_function(logits, masks)
+            loss.backward()
+            # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            optimizer.step()
+
+            predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
+            
+            count += 1
+
+            cumulative_loss += loss.item()
+            train_loss = cumulative_loss / count
+
+            mIoU = compute_mIoU(predictions, masks, NUM_CLASSES)
+            cumulative_mIoU += mIoU
+            train_mIoU = cumulative_mIoU / count
+
+            monitor.update(
+                i + 1,
+                learning_rate=f"{learning_rate:.5f}",
+                train_loss=f"{train_loss:.4f}",
+                train_mIoU=f"{train_mIoU:.4f}",
+            )
+
+        train_losses.append(train_loss)
+        train_mIoUs.append(train_mIoU)
+
+        monitor.stop()
+
+
+
+
+        # Validation
+        monitor.start(desc=f"Validation", max_progress=len(valloader))
+
+        cumulative_loss = 0.0
+        cumulative_mIoU = 0.0
+        count = 0
+        val_mIoU = 0.0
+
+        model.eval()
+        with torch.no_grad():
+            for i, (images, masks) in enumerate(valloader):
+                images, masks = images.to(device), masks.to(device)
+                if model_name in ("DeepLabV2_ResNet101",):
+                    logits = model(images)
+                elif model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
+                    logits = model(images)
+                    logits = F.interpolate(logits[0], size=(512, 512), mode='bilinear', align_corners=False)
+                loss = loss_function(logits, masks)
+                
+                predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
+                
+                count += 1
+                
+                cumulative_loss += loss.item()
+                val_loss = cumulative_loss / count
+
+                mIoU = compute_mIoU(predictions, masks, NUM_CLASSES)
+                cumulative_mIoU += mIoU
+                val_mIoU = cumulative_mIoU / count
+            
+                monitor.update(
+                    i + 1,
+                    val_loss=f"{val_loss:.4f}",
+                    val_mIoU=f"{val_mIoU:.4f}",
+                )
+
+        val_losses.append(val_loss)
+        val_mIoUs.append(val_mIoU)
+
+        monitor.stop()
+
+        if best_val_loss is None or val_loss < best_val_loss:
+            save_model(model, f"{res_dir}/weights/best_{model_number}.pt")
+            monitor.log(f"Model saved as best_{model_number}.pt\n")
+            best_val_loss = val_loss
+            patience_counter = 0
+        else:
+            patience_counter += 1
+
+        if patience_counter >= patience:
+            monitor.log(f"Early stopping after {e + 1} epochs\n")
+            break
+
+
+        scheduler.step()
+
+        save_model(model, f"{res_dir}/weights/last_{model_number}.pt")
+
+        plot_loss(train_losses, val_losses, model_number, res_dir)
+        plot_mIoU(train_mIoUs, val_mIoUs, model_number, res_dir)
+        plot_learning_rate(learning_rates, model_number, res_dir)
+
+
+    monitor.print_stats()
+
+
+def test(model_name, model, valloader, device, monitor):
+    monitor.start(desc=f"Testing", max_progress=len(valloader))
+
+    flops_count = 0
+    cumulative_mIoU = 0.0
+    count = 0
+    test_mIoU = 0.0
+    inference_times = []
+
+    model.eval()
+    with torch.no_grad():
+        
+        # FLOPs analysis
+        images, _ = next(iter(valloader))
+        images = images.to(device)
+        flops = FlopCountAnalysis(model, images)
+        flops_count = flop_count_table(flops)
+
+        # Testing
+        for i, (images, masks) in enumerate(valloader):
+            images, masks = images.to(device), masks.to(device)
+
+            if model_name in ("DeepLabV2_ResNet101",):
+                start_time = time.perf_counter()
+                logits = model(images)
+                end_time = time.perf_counter()
+            elif model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
+                start_time = time.perf_counter()
+                logits = model(images)
+                end_time = time.perf_counter()
+                logits = F.interpolate(logits[0], size=(512, 512), mode='bilinear', align_corners=False)
+
+            batch_inference_time = (end_time - start_time) / images.size(0)
+            inference_times.append(batch_inference_time)
+
+            predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
+            
+            count += 1
+
+            mIoU = compute_mIoU(predictions, masks, NUM_CLASSES)
+            cumulative_mIoU += mIoU
+            test_mIoU = cumulative_mIoU / count
+            
+            monitor.update(
+                i + 1,
+                test_mIoU=f"{test_mIoU:.4f}",
+            )
+
+    monitor.stop()
+
+    mean_inference_time = np.mean(inference_times)
+    std_inference_time = np.std(inference_times)
+
+    monitor.log(f"FLOPs:\n{flops_count}\n")
+    monitor.log(f"Mean Intersection over Union on test images: {test_mIoU*100:.3f} %")
+    monitor.log(f"Mean inference time: {mean_inference_time * 1000:.3f} ms")
+    monitor.log(f"Standard deviation of inference time: {std_inference_time * 1000:.3f} ms")
+
+
+
+
+
+
+
+
+
+
+
+def main():
+    args = parse_args()
+
+    if args.train and args.test:
+        raise Exception("Both train and test arguments are selected")
+
+    set_seed(args.seed)
+    device = get_device()
+
+    if args.train:
+        res_dir = make_results_dir(args.store, args.model_name, args.version, args.resume)
+
+        file_name = f"{res_dir}/training_log.txt"
+        train_monitor = Monitor(file_name, resume=args.resume)
+
+        trainloader, valloader, _ = dataset_preprocessing(
+            domain=args.source_domain,
+            batch_size=args.batch_size
+        )
+        
+        # inspect_dataset(trainloader, valloader, testloader)
+        # inspect_dataset_masks(trainloader, valloader, testloader)
+
+        model = get_model(args.model_name, device)
+
+        model_number = get_model_number(res_dir)
+        if args.resume:
+            model = load_model(model, f"{res_dir}/weights/last_{model_number-1}.pt", device)
+
+        loss_function = get_loss_function()
+        optimizer = get_optimizer(model, args)
+        scheduler = get_scheduler(optimizer, args)
+
+        if args.resume:
+            for _ in range(args.resume_epoch-1):
+                scheduler.step()
+
+        log_training_setup(model, loss_function, optimizer, scheduler, device, args, train_monitor)
+
+        train(
+            model_name=args.model_name,
+            model=model,
+            model_number=model_number,
+            trainloader=trainloader,
+            valloader=valloader,
+            loss_function=loss_function,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            epochs=args.epochs,
+            init_epoch=args.resume_epoch,
+            patience=args.patience,
+            device=device,
+            monitor=train_monitor,
+            res_dir=res_dir
+        )
+
+
+    if args.test:
+        res_dir = get_results_dir(args.store, args.model_name, args.version)
+
+        file_name = f"{res_dir}/testing_log.txt"
+        resume = os.path.exists(file_name)
+        test_monitor = Monitor(file_name, resume)
+
+        trainloader, valloader, _ = dataset_preprocessing(
+            domain=args.target_domain,
+            batch_size=args.batch_size
+        )
+
+        model = get_model(args.model_name, device)
+        model = load_model(model, f"{res_dir}/weights/{args.test_model_file}", device)
+
+        log_testing_setup(device, args, test_monitor)
+
+        test(
+            model=model,
+            valloader=valloader,
+            device=device,
+            monitor=test_monitor
+        )
+
+
+
+if __name__ == "__main__":
+    main()
