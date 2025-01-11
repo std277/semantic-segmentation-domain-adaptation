@@ -84,17 +84,17 @@ def get_device():
 def log_training_setup(model, loss_function, optimizer, scheduler, device, args, monitor):
     monitor.log(f"Model:\n{model}\n")
 
-    monitor.log(f"Device:\n{device}\n")
+    monitor.log(f"Device: {device}")
     if torch.cuda.is_available():
         device_name = torch.cuda.get_device_name(torch.cuda.current_device())
-        monitor.log(f"Cuda device name:\n{device_name}\n")
+        monitor.log(f"Cuda device name: {device_name}")
 
 
-    monitor.log(f"Dataset source domain:\n{args.source_domain}\n")
+    monitor.log(f"Dataset source domain: {args.source_domain}")
 
-    monitor.log(f"Batch size:\n{args.batch_size}\n")
+    monitor.log(f"Batch size: {args.batch_size}\n")
 
-    monitor.log(f"Loss function:\n{loss_function}\n")
+    monitor.log(f"Loss function: {loss_function}\n")
 
     monitor.log(f"Optimizer:\n{args.optimizer} (")
     if args.optimizer == "Adam":
@@ -123,8 +123,12 @@ def log_training_setup(model, loss_function, optimizer, scheduler, device, args,
 
 
 def log_testing_setup(device, args, monitor):
-    monitor.log(f"Device:\n{device}\n")
-    monitor.log(f"Dataset target domain:\n{args.target_domain}\n")
+    monitor.log(f"Model test file: {args.test_model_file}")
+    monitor.log(f"Device: {device}")
+    if torch.cuda.is_available():
+        device_name = torch.cuda.get_device_name(torch.cuda.current_device())
+        monitor.log(f"Cuda device name: {device_name}")
+    monitor.log(f"Dataset target domain: {args.target_domain}\n")
 
 
 def dataset_preprocessing(domain, batch_size):
@@ -165,8 +169,8 @@ def save_model(model, file_name):
     torch.save(model.state_dict(), file_name)
 
 
-def load_model(model, file_name):
-    model.load_state_dict(torch.load(file_name))
+def load_model(model, file_name, device):
+    model.load_state_dict(torch.load(file_name, map_location=torch.device(device), weights_only=True))
     return model
 
 
@@ -434,8 +438,8 @@ def test(model, valloader, device, monitor):
     mean_inference_time = np.mean(inference_times)
     std_inference_time = np.std(inference_times)
 
-    monitor.log(f"FLOPs: {flops_count}")
-    monitor.log(f"Mean Intersection over Union on test images: {test_mIoU:.3f}")
+    monitor.log(f"FLOPs:\n{flops_count}\n")
+    monitor.log(f"Mean Intersection over Union on test images: {test_mIoU*100:.3f} %")
     monitor.log(f"Mean inference time: {mean_inference_time * 1000:.3f} ms")
     monitor.log(f"Standard deviation of inference time: {std_inference_time * 1000:.3f} ms")
 
@@ -456,23 +460,21 @@ def main(args):
     set_seed(args.seed)
     device = get_device()
 
-    model = get_model(args.model_name, device)
-
     if args.train:
         res_dir = make_results_dir(args.store, args.model_name, args.version)
         
-        train_monitor = Monitor(file_name=f"{res_dir}/training_log.txt")
+        file_name = f"{res_dir}/training_log.txt"
+        train_monitor = Monitor(file_name)
 
         trainloader, valloader, _ = dataset_preprocessing(
             domain=args.source_domain,
             batch_size=args.batch_size
         )
         
-
         # inspect_dataset(trainloader, valloader, testloader)
         # inspect_dataset_masks(trainloader, valloader, testloader)
 
-
+        model = get_model(args.model_name, device)
         loss_function = get_loss_function()
         optimizer = get_optimizer(model, args)
         scheduler = get_scheduler(optimizer, args)
@@ -499,12 +501,17 @@ def main(args):
     if args.test:
         res_dir = get_results_dir(args.store, args.model_name, args.version)
 
-        test_monitor = Monitor(file_name=f"{res_dir}/testing_log.txt")
+        file_name = f"{res_dir}/testing_log.txt"
+        resume = os.path.exists(file_name)
+        test_monitor = Monitor(file_name, resume)
 
         trainloader, valloader, _ = dataset_preprocessing(
             domain=args.target_domain,
             batch_size=args.batch_size
         )
+
+        model = get_model(args.model_name, device)
+        model = load_model(model, f"{res_dir}/weights/{args.test_model_file}", device)
 
         log_testing_setup(device, args, test_monitor)
 
