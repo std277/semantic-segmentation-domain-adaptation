@@ -170,7 +170,7 @@ def inspect_dataset_masks(trainloader, valloader, testloader):
 #     plt.savefig(f"{base_dir}/plots/learning_rate_{model_number}.pdf")
 #     plt.close(fig)
 
-def plot_loss(train_losses, val_losses, res_dir):
+def plot_loss(train_losses, val_losses, model_number, res_dir):
     fig = plt.figure()
     plt.title("Loss")
     plt.ylabel("Loss")
@@ -178,11 +178,11 @@ def plot_loss(train_losses, val_losses, res_dir):
     plt.plot(train_losses, label="Train Loss")
     plt.plot(val_losses, label="Val Loss")
     plt.legend()
-    plt.savefig(f"{res_dir}/plots/loss.pdf")
+    plt.savefig(f"{res_dir}/plots/loss_{model_number}.pdf")
     plt.close(fig)
 
 
-def plot_mIoU(train_mIoUs, val_mIoUs, res_dir):
+def plot_mIoU(train_mIoUs, val_mIoUs, model_number, res_dir):
     fig = plt.figure()
     plt.title("Mean Intersection over Union")
     plt.ylabel("mIoU")
@@ -190,17 +190,17 @@ def plot_mIoU(train_mIoUs, val_mIoUs, res_dir):
     plt.plot(train_mIoUs, label="Train mIoU")
     plt.plot(val_mIoUs, label="Val mIoU")
     plt.legend()
-    plt.savefig(f"{res_dir}/plots/mIoU.pdf")
+    plt.savefig(f"{res_dir}/plots/mIoU_{model_number}.pdf")
     plt.close(fig)
 
 
-def plot_learning_rate(learning_rates, res_dir):
+def plot_learning_rate(learning_rates, model_number, res_dir):
     fig = plt.figure()
     plt.title("Learning rate")
     plt.ylabel("learning rate")
     plt.xlabel("Epoch")
     plt.plot(learning_rates, label="Learning Rate")
     plt.legend()
-    plt.savefig(f"{res_dir}/plots/learning_rate.pdf")
+    plt.savefig(f"{res_dir}/plots/learning_rate_{model_number}.pdf")
     plt.close(fig)
 

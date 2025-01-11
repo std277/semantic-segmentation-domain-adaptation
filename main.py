@@ -1,5 +1,6 @@
 import argparse
 import os
+import re
 
 import random
 
@@ -33,7 +34,7 @@ def set_seed(seed):
     torch.cuda.manual_seed(seed)
 
 
-def make_results_dir(store, model_name, version):
+def make_results_dir(store, model_name, version, resume):
     if store == "drive":
         res_dir = "/content/drive/MyDrive/res"
     else:
@@ -42,14 +43,16 @@ def make_results_dir(store, model_name, version):
     os.makedirs(res_dir, exist_ok=True)
 
     dir_name = f"{model_name}_{version}"
-    for file in os.listdir(res_dir):
-        if file == dir_name:
-            raise Exception(f"Directory {dir_name} already exists")
+    if not resume:
+        for file in os.listdir(res_dir):
+            if file == dir_name:
+                raise Exception(f"Directory {dir_name} already exists")
 
     res_dir = f"{res_dir}/{dir_name}"
-    sub_dirs = [res_dir, f"{res_dir}/weights", f"{res_dir}/plots"]
-    for sub_dir in sub_dirs:
-        os.makedirs(sub_dir, exist_ok=True)
+    if not resume:
+        sub_dirs = [res_dir, f"{res_dir}/weights", f"{res_dir}/plots"]
+        for sub_dir in sub_dirs:
+            os.makedirs(sub_dir, exist_ok=True)
 
     return res_dir
 
@@ -63,6 +66,25 @@ def get_results_dir(store, model_name, version):
     res_dir = f"{res_dir}/{dir_name}"
 
     return res_dir
+
+
+def get_model_number(res_dir):
+    model_number = 0
+
+    model_found = False
+    pattern = r'last_(\d+)\.pt'
+    for file in os.listdir(f"{res_dir}/weights"):
+        match = re.match(pattern, file)
+        if match:
+            model_found = True
+            n = int(match.group(1))
+            if n > model_number:
+                model_number = n
+
+    if model_found:
+        model_number += 1
+    
+    return model_number
 
 
 def get_device():
@@ -253,7 +275,7 @@ def compute_mIoU(predictions, masks, num_classes):
 
 
 
-def train(model, trainloader, valloader, loss_function, optimizer, scheduler, epochs, patience, device, monitor, res_dir):
+def train(model, model_number, trainloader, valloader, loss_function, optimizer, scheduler, epochs, init_epoch, patience, device, monitor, res_dir):
     cudnn.benchmark = True
 
     if device.type == "cuda":
@@ -270,7 +292,7 @@ def train(model, trainloader, valloader, loss_function, optimizer, scheduler, ep
     best_val_loss = None
     patience_counter = 0
 
-    for e in range(epochs):
+    for e in range(init_epoch-1, epochs):
         # Training
         monitor.start(desc=f"Epoch {e + 1}/{epochs}", max_progress=len(trainloader))
 
@@ -367,8 +389,8 @@ def train(model, trainloader, valloader, loss_function, optimizer, scheduler, ep
         monitor.stop()
 
         if best_val_loss is None or val_loss < best_val_loss:
-            save_model(model, f"{res_dir}/weights/best.pt")
-            monitor.log(f"Model saved as best.pt\n")
+            save_model(model, f"{res_dir}/weights/best_{model_number}.pt")
+            monitor.log(f"Model saved as best_{model_number}.pt\n")
             best_val_loss = val_loss
             patience_counter = 0
         else:
@@ -381,11 +403,11 @@ def train(model, trainloader, valloader, loss_function, optimizer, scheduler, ep
 
         scheduler.step()
 
-        save_model(model, f"{res_dir}/weights/last.pt")
+        save_model(model, f"{res_dir}/weights/last_{model_number}.pt")
 
-        plot_loss(train_losses, val_losses, res_dir)
-        plot_mIoU(train_mIoUs, val_mIoUs, res_dir)
-        plot_learning_rate(learning_rates, res_dir)
+        plot_loss(train_losses, val_losses, model_number, res_dir)
+        plot_mIoU(train_mIoUs, val_mIoUs, model_number, res_dir)
+        plot_learning_rate(learning_rates, model_number, res_dir)
 
 
     monitor.print_stats()
@@ -461,10 +483,10 @@ def main(args):
     device = get_device()
 
     if args.train:
-        res_dir = make_results_dir(args.store, args.model_name, args.version)
-        
+        res_dir = make_results_dir(args.store, args.model_name, args.version, args.resume)
+
         file_name = f"{res_dir}/training_log.txt"
-        train_monitor = Monitor(file_name)
+        train_monitor = Monitor(file_name, resume=args.resume)
 
         trainloader, valloader, _ = dataset_preprocessing(
             domain=args.source_domain,
@@ -475,20 +497,31 @@ def main(args):
         # inspect_dataset_masks(trainloader, valloader, testloader)
 
         model = get_model(args.model_name, device)
+
+        model_number = get_model_number(res_dir)
+        if args.resume:
+            model = load_model(model, f"{res_dir}/weights/last_{model_number-1}.pt", device)
+
         loss_function = get_loss_function()
         optimizer = get_optimizer(model, args)
         scheduler = get_scheduler(optimizer, args)
+
+        if args.resume:
+            for _ in range(args.resume_epoch-1):
+                scheduler.step()
 
         log_training_setup(model, loss_function, optimizer, scheduler, device, args, train_monitor)
 
         train(
             model=model,
+            model_number=model_number,
             trainloader=trainloader,
             valloader=valloader,
             loss_function=loss_function,
             optimizer=optimizer,
             scheduler=scheduler,
             epochs=args.epochs,
+            init_epoch=args.resume_epoch,
             patience=args.patience,
             device=device,
             monitor=train_monitor,
@@ -558,13 +591,26 @@ if __name__ == "__main__":
     parser.add_argument(
         "--train",
         action="store_true",
-        help="Enable training mode"
+        help="Enable training mode."
     )
 
     parser.add_argument(
         "--test",
         action="store_true",
-        help="Enable testing mode"
+        help="Enable testing mode."
+    )
+
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume training from specified model."
+    )
+
+    parser.add_argument(
+        "--resume_epoch",
+        type=int,
+        default=1,
+        help=f"Specify the epoch to resume.",
     )
 
     parser.add_argument(
