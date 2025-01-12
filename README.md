@@ -56,5 +56,7 @@ Data augmentation: HorizontalFlip(p=0.5), RandomBrightnessContrast(p=0.2), Shift
 | 2       | True     | Rural      | 8          | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.001)  | PolynomialLR(lr=0.01, power=0.9) | 20         | Rural         |     |
 
 Notes:
+- Useful to hold full image size?
+- Try to predict and plot results (image, mask and prediction)
 - Loss function: https://chatgpt.com/share/67829b87-b5d0-800f-8565-00127f6ed5bc
 - Add loss function argument and adjust training logs and code to make logs
