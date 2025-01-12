@@ -71,6 +71,7 @@ Standard deviation of inference time: 5.555 ms
 
 
 Notes:
-- Look for training in cityscapes
+- TEST ON PIDNETS - CITYSCAPES WICH OUTPUT?
+- TRY TRAINING AND TESTING WITH PIDNET AND DEEPLAB
 - Loss function: https://chatgpt.com/share/67829b87-b5d0-800f-8565-00127f6ed5bc
 - Add loss function argument and adjust training logs and code to make logs

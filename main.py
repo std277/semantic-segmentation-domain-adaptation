@@ -25,7 +25,10 @@ from fvcore.nn import FlopCountAnalysis, flop_count_table
 
 from datasets import LoveDADataset, MEAN, STD, NUM_CLASSES
 from models import DeepLabV2_ResNet101, PIDNet_S, PIDNet_M, PIDNet_L
+from criteria import CrossEntropyLoss, OhemCrossEntropyLoss
 from utils import *
+
+
 
 
 def parse_args():
@@ -41,6 +44,11 @@ def parse_args():
         "PIDNet_S",
         "PIDNet_M",
         "PIDNet_L",
+    ]
+
+    criteria_choices = [
+        "CrossEntropyLoss",
+        "OhemCrossEntropyLoss"
     ]
 
     optimizers_choices = [
@@ -142,6 +150,14 @@ def parse_args():
         type=int,
         default=8,
         help=f"Specify the batch size.",
+    )
+
+    parser.add_argument(
+        "--criterion",
+        type=str,
+        choices=criteria_choices,
+        default="CrossEntropyLoss",
+        help=f"Specify the criterion.",
     )
 
     parser.add_argument(
@@ -312,7 +328,7 @@ def get_device():
     return device
 
 
-def log_training_setup(model, loss_function, optimizer, scheduler, device, args, monitor):
+def log_training_setup(model, criterion, optimizer, scheduler, device, args, monitor):
     monitor.log(f"Model: {args.model_name}")
 
     monitor.log(f"Device: {device}")
@@ -327,7 +343,7 @@ def log_training_setup(model, loss_function, optimizer, scheduler, device, args,
 
     monitor.log(f"Batch size: {args.batch_size}\n")
 
-    monitor.log(f"Loss function: {loss_function}\n")
+    monitor.log(f"Criterion: {args.criterion}\n")
 
     monitor.log(f"Optimizer:\n{args.optimizer} (")
     if args.optimizer == "Adam":
@@ -422,8 +438,15 @@ def load_model(model, file_name, device):
     return model
 
 
-def get_loss_function():
-    return nn.CrossEntropyLoss(ignore_index=255)
+def get_criterion(args):
+    if args.criterion == "CrossEntropyLoss":
+        criterion = CrossEntropyLoss(ignore_label=255)
+    elif args.criterion == "OhemCrossEntropyLoss":
+        criterion = OhemCrossEntropyLoss(ignore_label=255)
+    else:
+        raise Exception(f"Criterion {args.criterion} doesn't exist")
+    return criterion
+
 
 
 def get_optimizer(model, args):
@@ -501,13 +524,8 @@ def compute_mIoU(predictions, masks, num_classes):
 
 
 
-def train(model_name, model, model_number, trainloader, valloader, loss_function, optimizer, scheduler, epochs, init_epoch, patience, device, monitor, res_dir):
+def train(model_name, model, model_number, trainloader, valloader, criterion, optimizer, scheduler, epochs, init_epoch, patience, device, monitor, res_dir):
     cudnn.benchmark = True
-
-    # if device.type == "cuda":
-    #     scaler = GradScaler("cuda")
-    # else:
-    #     scaler = None
 
     train_losses = []
     val_losses = []
@@ -536,23 +554,29 @@ def train(model_name, model, model_number, trainloader, valloader, loss_function
 
             optimizer.zero_grad()
 
-            # if scaler:
-            #     with autocast("cuda"):
-            #         logits = model(images)
-            #         loss = loss_function(logits, masks)
-
-            #     scaler.scale(loss).backward()
-            #     scaler.step(optimizer)
-            #     scaler.update()
-            # else:
-
             if model_name in ("DeepLabV2_ResNet101",):
                 logits = model(images)
+                loss = criterion([logits], masks)
+
             elif model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
                 logits = model(images)
-                logits = F.interpolate(logits[0], size=(512, 512), mode='bilinear', align_corners=False)
 
-            loss = loss_function(logits, masks)
+                h, w = masks.size(1), masks.size(2)
+                ph, pw = logits[0].size(2), logits[0].size(3)
+                if ph != h or pw != w:
+                    for i in range(len(logits)):
+                        logits[i] = F.interpolate(logits[i], size=(h, w), mode='bilinear', align_corners=False)
+
+                loss_s = criterion(logits[:-1], masks, balance_weights=[0.4, 1.0])
+
+                filler = torch.ones_like(masks) * 255
+                bd_label = torch.where(F.sigmoid(logits[-1][:,0,:,:])>0.8, masks, filler)
+                loss_sb = criterion([logits[-2]], bd_label)
+                
+                loss = loss_s + loss_sb
+
+                logits = logits[-2]
+
             loss.backward()
             # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
@@ -597,10 +621,26 @@ def train(model_name, model, model_number, trainloader, valloader, loss_function
                 images, masks = images.to(device), masks.to(device)
                 if model_name in ("DeepLabV2_ResNet101",):
                     logits = model(images)
+                    loss = criterion([logits], masks)
+
                 elif model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
                     logits = model(images)
-                    logits = F.interpolate(logits[0], size=(512, 512), mode='bilinear', align_corners=False)
-                loss = loss_function(logits, masks)
+
+                    h, w = masks.size(1), masks.size(2)
+                    ph, pw = logits[0].size(2), logits[0].size(3)
+                    if ph != h or pw != w:
+                        for i in range(len(logits)):
+                            logits[i] = F.interpolate(logits[i], size=(h, w), mode='bilinear', align_corners=False)
+
+                    loss_s = criterion(logits[:-1], masks, balance_weights=[0.4, 1.0])
+
+                    filler = torch.ones_like(masks) * 255
+                    bd_label = torch.where(F.sigmoid(logits[-1][:,0,:,:])>0.8, masks, filler)
+                    loss_sb = criterion([logits[-2]], bd_label)
+                
+                    loss = loss_s + loss_sb
+
+                    logits = logits[-2]
                 
                 predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
                 
@@ -679,7 +719,14 @@ def test(model_name, model, valloader, device, monitor):
                 start_time = time.perf_counter()
                 logits = model(images)
                 end_time = time.perf_counter()
-                logits = F.interpolate(logits[0], size=(512, 512), mode='bilinear', align_corners=False)
+
+                h, w = masks.size(1), masks.size(2)
+                ph, pw = logits[0].size(2), logits[0].size(3)
+                if ph != h or pw != w:
+                    for i in range(len(logits)):
+                        logits[i] = F.interpolate(logits[i], size=(h, w), mode='bilinear', align_corners=False)
+
+                logits = logits[-2]
 
             batch_inference_time = (end_time - start_time) / images.size(0)
             inference_times.append(batch_inference_time)
@@ -723,7 +770,13 @@ def predict(model_name, model, valloader, device):
                 logits = model(images)
             elif model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
                 logits = model(images)
-                logits = F.interpolate(logits[0], size=(512, 512), mode='bilinear', align_corners=False)
+                h, w = masks.size(1), masks.size(2)
+                ph, pw = logits[0].size(2), logits[0].size(3)
+                if ph != h or pw != w:
+                    for i in range(len(logits)):
+                        logits[i] = F.interpolate(logits[i], size=(h, w), mode='bilinear', align_corners=False)
+
+                logits = logits[-2]
 
             predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
             
@@ -775,7 +828,7 @@ def main():
         if args.resume:
             model = load_model(model, f"{res_dir}/weights/last_{model_number-1}.pt", device)
 
-        loss_function = get_loss_function()
+        criterion = get_criterion(args)
         optimizer = get_optimizer(model, args)
         scheduler = get_scheduler(optimizer, args)
 
@@ -783,7 +836,7 @@ def main():
             for _ in range(args.resume_epoch-1):
                 scheduler.step()
 
-        log_training_setup(model, loss_function, optimizer, scheduler, device, args, train_monitor)
+        log_training_setup(model, criterion, optimizer, scheduler, device, args, train_monitor)
 
         train(
             model_name=args.model_name,
@@ -791,7 +844,7 @@ def main():
             model_number=model_number,
             trainloader=trainloader,
             valloader=valloader,
-            loss_function=loss_function,
+            criterion=criterion,
             optimizer=optimizer,
             scheduler=scheduler,
             epochs=args.epochs,
