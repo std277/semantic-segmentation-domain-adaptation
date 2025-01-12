@@ -18,7 +18,7 @@ from torch.optim.lr_scheduler import LambdaLR, StepLR, CosineAnnealingLR
 from torch.backends import cudnn
 from torch.amp import GradScaler, autocast
 
-from albumentations import Compose, Resize, Normalize, HorizontalFlip, VerticalFlip, RandomRotate90, ShiftScaleRotate, RandomBrightnessContrast
+from albumentations import Compose, Resize, Normalize, HorizontalFlip, VerticalFlip, RandomRotate90, ShiftScaleRotate, RandomBrightnessContrast, CoarseDropout
 from albumentations.pytorch import ToTensorV2
 
 from fvcore.nn import FlopCountAnalysis, flop_count_table
@@ -317,6 +317,8 @@ def log_training_setup(model, loss_function, optimizer, scheduler, device, args,
 
     monitor.log(f"Dataset source domain: {args.source_domain}")
 
+    monitor.log(f"Data augmentation: {args.data_augmentation}")
+
     monitor.log(f"Batch size: {args.batch_size}\n")
 
     monitor.log(f"Loss function: {loss_function}\n")
@@ -356,26 +358,27 @@ def log_testing_setup(device, args, monitor):
     monitor.log(f"Dataset target domain: {args.target_domain}\n")
 
 
-def dataset_preprocessing(domain, batch_size, data_augmentation):
+def dataset_preprocessing(domain, batch_size, data_augmentation, model_name):
     # Define transforms
 
+    transform_list = []
+
+    if model_name in ("DeepLabV2_ResNet101",):
+        transform_list.append(Resize(512, 512))
+
+    transform_list.append(Normalize(mean=MEAN, std=STD))
+
     if data_augmentation:
-        transform = Compose([
-            Resize(512, 512),
-            Normalize(mean=MEAN, std=STD),
-            HorizontalFlip(p=0.2),
-            VerticalFlip(p=0.2),
-            RandomRotate90(p=0.2),
-            ShiftScaleRotate(p=0.2),
+        transform_list.extend([
+            HorizontalFlip(p=0.5),
             RandomBrightnessContrast(p=0.2),
-            ToTensorV2(),
+            ShiftScaleRotate(shift_limit=0.1, scale_limit=0.2, rotate_limit=15, p=0.3),
+            CoarseDropout(max_holes=8, max_height=32, max_width=32, p=0.3),
         ])
-    else:
-        transform = Compose([
-            Resize(512, 512),
-            Normalize(mean=MEAN, std=STD),
-            ToTensorV2(),
-        ])
+
+    transform_list.append(ToTensorV2())
+    
+    transform = Compose(transform_list)
 
     # Define the Dataset object for training, validation and testing
     traindataset = LoveDADataset(dataset_type="Train", domain=domain, transform=transform, root_dir='data')
@@ -545,7 +548,7 @@ def train(model_name, model, model_number, trainloader, valloader, loss_function
                 logits = model(images)
             elif model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
                 logits = model(images)
-                logits = F.interpolate(logits[0], size=(512, 512), mode='bilinear', align_corners=False)
+                logits = F.interpolate(logits[0], size=(1024, 1024), mode='bilinear', align_corners=False)
 
             loss = loss_function(logits, masks)
             loss.backward()
@@ -594,7 +597,7 @@ def train(model_name, model, model_number, trainloader, valloader, loss_function
                     logits = model(images)
                 elif model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
                     logits = model(images)
-                    logits = F.interpolate(logits[0], size=(512, 512), mode='bilinear', align_corners=False)
+                    logits = F.interpolate(logits[0], size=(1024, 1024), mode='bilinear', align_corners=False)
                 loss = loss_function(logits, masks)
                 
                 predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
@@ -674,7 +677,7 @@ def test(model_name, model, valloader, device, monitor):
                 start_time = time.perf_counter()
                 logits = model(images)
                 end_time = time.perf_counter()
-                logits = F.interpolate(logits[0], size=(512, 512), mode='bilinear', align_corners=False)
+                logits = F.interpolate(logits[0], size=(1024, 1024), mode='bilinear', align_corners=False)
 
             batch_inference_time = (end_time - start_time) / images.size(0)
             inference_times.append(batch_inference_time)
@@ -730,7 +733,8 @@ def main():
         trainloader, valloader, _ = dataset_preprocessing(
             domain=args.source_domain,
             batch_size=args.batch_size,
-            data_augmentation=args.data_augmentation
+            data_augmentation=args.data_augmentation,
+            model_name=args.model_name
         )
         
         # inspect_dataset(trainloader, valloader, testloader)
@@ -780,7 +784,8 @@ def main():
         trainloader, valloader, _ = dataset_preprocessing(
             domain=args.target_domain,
             batch_size=args.batch_size,
-            data_augmentation=False
+            data_augmentation=False,
+            model_name=args.model_name
         )
 
         model = get_model(args.model_name, device)

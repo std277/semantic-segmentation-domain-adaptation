@@ -59,14 +59,15 @@
 python3 main.py \
     --train \
     --model_name PIDNet_S \
-    --version 1 \
+    --version 2 \
     --source_domain Rural \
     --data_augmentation \
     --batch_size 8 \
     --optimizer SGD \
+    --weight_decay 0.001 \
     --scheduler PolynomialLR \
     --lr 0.01 \
-    --power 0.6 \
+    --power 0.9 \
     --epochs 20
 
 
