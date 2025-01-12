@@ -29,8 +29,6 @@ Model name: `PIDNet_S`
 
 Resizing: (512, 512)
 
-Data augmentation: HorizontalFlip(p=0.2), VerticalFlip(p=0.2), RandomRotate90(p=0.2), ShiftScaleRotate(p=0.2), RandomBrightnessContrast(p=0.2)
-
 | VERSION | DATA AUG | SRC DOMAIN | BATCH SIZE | OPTIMIZER                                         | SCHEDULER                        | NUM_EPOCHS | TARGET DOMAIN | mIoU (%) |
 |---------|----------|------------|------------|---------------------------------------------------|----------------------------------|------------|---------------|----------|
 | 0       | False    | Rural      | 8          | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.6) | 20         | Rural         | 34.02    |
@@ -45,18 +43,34 @@ Standard deviation of inference time: 4.612 ms
 
 
 
+
+
+
+
+
 Model name: `PIDNet_S`
 
 No resizing: (1024, 1024)
 
-Data augmentation: HorizontalFlip(p=0.5), RandomBrightnessContrast(p=0.2), ShiftScaleRotate(shift_limit=0.1, scale_limit=0.2, rotate_limit=15, p=0.3), CoarseDropout(max_holes=8, max_height=32, max_width=32, p=0.3)
-
 | VERSION | DATA AUG | SRC DOMAIN | BATCH SIZE | OPTIMIZER                                         | SCHEDULER                        | NUM_EPOCHS | TARGET DOMAIN | mIoU (%) |
 |---------|----------|------------|------------|---------------------------------------------------|----------------------------------|------------|---------------|----------|
-| 2       | True     | Rural      | 8          | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.001)  | PolynomialLR(lr=0.01, power=0.9) | 20         | Rural         |     |
+| X       | True     | Rural      | 8          | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.001)  | PolynomialLR(lr=0.01, power=0.9) | 20         | Rural         | 31.86    |
+
+
+FLOPs: 0.202T
+
+Mean inference time: 353.668 ms
+
+Standard deviation of inference time: 5.555 ms
+
+
+
+
+
+
+
 
 Notes:
-- Useful to hold full image size?
-- Try to predict and plot results (image, mask and prediction)
+- Look for training in cityscapes
 - Loss function: https://chatgpt.com/share/67829b87-b5d0-800f-8565-00127f6ed5bc
 - Add loss function argument and adjust training logs and code to make logs

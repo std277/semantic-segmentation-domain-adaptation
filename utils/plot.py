@@ -43,14 +43,14 @@ def plot_image(image, mask=None, alpha=1., title=None, show=True):
         np_image = image.numpy().transpose((1, 2, 0)) * np.array(STD) + np.array(MEAN)
         axes[0].imshow(np_image)
         axes[0].axis("off")
-        axes[0].set_title("Original Image")
+        axes[0].set_title("Image")
 
         np_mask = mask.numpy()
         np_mask_color_image = get_mask_color_image(np_image, np_mask)
         axes[1].imshow(np_image)
         axes[1].imshow(np_mask_color_image, alpha=1.0)
         axes[1].axis("off")
-        axes[1].set_title("Mask Overlay")
+        axes[1].set_title("Mask")
 
         patches = [mpatches.Patch(color=CLASS_COLOR[label], label=label.name.lower().capitalize()) for label in LoveDADatasetLabel]
         plt.legend(handles=patches)
@@ -72,13 +72,66 @@ def plot_image(image, mask=None, alpha=1., title=None, show=True):
             plt.imshow(np_mask_color_image, alpha=alpha)
 
             patches = [mpatches.Patch(color=CLASS_COLOR[label], label=label.name.lower().capitalize()) for label in LoveDADatasetLabel]
-            plt.legend(handles=patches, bbox_to_anchor=(
-                1.05, 1), loc='upper left', borderaxespad=0.)
+            plt.legend(handles=patches, bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
 
         plt.axis("off")
 
         if show:
             plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+def plot_prediction(image, mask, prediction, alpha=1., title=None, description=None, show=True):
+    fig, axes = plt.subplots(1, 3, figsize=(17, 7))
+
+    axes = axes.flatten()
+
+    if title is not None:
+        fig.suptitle(title)
+
+    np_image = image.numpy().transpose((1, 2, 0)) * np.array(STD) + np.array(MEAN)
+    axes[0].imshow(np_image)
+    axes[0].axis("off")
+    axes[0].set_title("Image")
+
+    np_mask = mask.numpy()
+    np_mask_color_image = get_mask_color_image(np_image, np_mask)
+    axes[1].imshow(np_image)
+    axes[1].imshow(np_mask_color_image, alpha=alpha)
+    axes[1].axis("off")
+    axes[1].set_title("Mask")
+
+    np_prediction = prediction.numpy()
+    np_prediction_color_image = get_mask_color_image(np_image, np_prediction)
+    axes[2].imshow(np_image)
+    axes[2].imshow(np_prediction_color_image, alpha=alpha)
+    axes[2].axis("off")
+    axes[2].set_title("Prediction")
+
+    patches = [mpatches.Patch(color=CLASS_COLOR[label], label=label.name.lower().capitalize()) for label in LoveDADatasetLabel]
+    plt.legend(handles=patches, bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
+
+    if description is not None:
+        fig.text(0.5, 0.1, description, ha='center', fontsize=12, wrap=True)
+
+    if show:
+        plt.show()
+
+
+
+
+
+
+
 
 
 def plot_batch(images, masks=None, alpha=0.3, title=None, show=True):

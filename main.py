@@ -75,6 +75,12 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--predict",
+        action="store_true",
+        help="Enable predict mode."
+    )
+
+    parser.add_argument(
         "--resume",
         action="store_true",
         help="Resume training from specified model."
@@ -97,16 +103,16 @@ def parse_args():
 
     parser.add_argument(
         "--version",
-        type=int,
-        default=0,
+        type=str,
+        default="0",
         help=f"Specify the version.",
     )
 
     parser.add_argument(
-        "--test_model_file",
+        "--model_file",
         type=str,
         default="best.pt",
-        help=f"Specify the model file name for testing.",
+        help=f"Specify the model file name containing weights for testing and prediction.",
     )
 
     parser.add_argument(
@@ -206,7 +212,7 @@ def parse_args():
     parser.add_argument(
         "--patience",
         type=int,
-        default=10,
+        default=1000,
         help=f"Specify the number of epochs necessary for early stopping if there isn't improvement.",
     )
 
@@ -350,7 +356,7 @@ def log_training_setup(model, loss_function, optimizer, scheduler, device, args,
 
 
 def log_testing_setup(device, args, monitor):
-    monitor.log(f"Model test file: {args.test_model_file}")
+    monitor.log(f"Model test file: {args.model_file}")
     monitor.log(f"Device: {device}")
     if torch.cuda.is_available():
         device_name = torch.cuda.get_device_name(torch.cuda.current_device())
@@ -360,28 +366,24 @@ def log_testing_setup(device, args, monitor):
 
 def dataset_preprocessing(domain, batch_size, data_augmentation, model_name):
     # Define transforms
+    augmentation_transform = Compose([
+        Resize(512, 512),
+        Normalize(mean=MEAN, std=STD),
+        HorizontalFlip(p=0.5),
+        RandomBrightnessContrast(p=0.2),
+        ShiftScaleRotate(shift_limit=0.1, scale_limit=0.2, rotate_limit=15, p=0.3),
+        CoarseDropout(max_holes=8, max_height=32, max_width=32, p=0.3),
+        ToTensorV2()
+    ])
 
-    transform_list = []
-
-    if model_name in ("DeepLabV2_ResNet101",):
-        transform_list.append(Resize(512, 512))
-
-    transform_list.append(Normalize(mean=MEAN, std=STD))
-
-    if data_augmentation:
-        transform_list.extend([
-            HorizontalFlip(p=0.5),
-            RandomBrightnessContrast(p=0.2),
-            ShiftScaleRotate(shift_limit=0.1, scale_limit=0.2, rotate_limit=15, p=0.3),
-            CoarseDropout(max_holes=8, max_height=32, max_width=32, p=0.3),
-        ])
-
-    transform_list.append(ToTensorV2())
-    
-    transform = Compose(transform_list)
+    transform = Compose([
+        Resize(512, 512),
+        Normalize(mean=MEAN, std=STD),
+        ToTensorV2()
+    ])
 
     # Define the Dataset object for training, validation and testing
-    traindataset = LoveDADataset(dataset_type="Train", domain=domain, transform=transform, root_dir='data')
+    traindataset = LoveDADataset(dataset_type="Train", domain=domain, transform=(augmentation_transform if data_augmentation else transform), root_dir='data')
     valdataset = LoveDADataset(dataset_type="Val", domain=domain, transform=transform, root_dir='data')
     testdataset = LoveDADataset(dataset_type="Test", domain=domain, transform=transform, root_dir='data')
 
@@ -548,7 +550,7 @@ def train(model_name, model, model_number, trainloader, valloader, loss_function
                 logits = model(images)
             elif model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
                 logits = model(images)
-                logits = F.interpolate(logits[0], size=(1024, 1024), mode='bilinear', align_corners=False)
+                logits = F.interpolate(logits[0], size=(512, 512), mode='bilinear', align_corners=False)
 
             loss = loss_function(logits, masks)
             loss.backward()
@@ -597,7 +599,7 @@ def train(model_name, model, model_number, trainloader, valloader, loss_function
                     logits = model(images)
                 elif model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
                     logits = model(images)
-                    logits = F.interpolate(logits[0], size=(1024, 1024), mode='bilinear', align_corners=False)
+                    logits = F.interpolate(logits[0], size=(512, 512), mode='bilinear', align_corners=False)
                 loss = loss_function(logits, masks)
                 
                 predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
@@ -677,7 +679,7 @@ def test(model_name, model, valloader, device, monitor):
                 start_time = time.perf_counter()
                 logits = model(images)
                 end_time = time.perf_counter()
-                logits = F.interpolate(logits[0], size=(1024, 1024), mode='bilinear', align_corners=False)
+                logits = F.interpolate(logits[0], size=(512, 512), mode='bilinear', align_corners=False)
 
             batch_inference_time = (end_time - start_time) / images.size(0)
             inference_times.append(batch_inference_time)
@@ -709,6 +711,33 @@ def test(model_name, model, valloader, device, monitor):
 
 
 
+def predict(model_name, model, valloader, device):
+    model.eval()
+    with torch.no_grad():
+
+        # Predicting
+        for i, (images, masks) in enumerate(valloader):
+            images, masks = images.to(device), masks.to(device)
+
+            if model_name in ("DeepLabV2_ResNet101",):
+                logits = model(images)
+            elif model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
+                logits = model(images)
+                logits = F.interpolate(logits[0], size=(512, 512), mode='bilinear', align_corners=False)
+
+            predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
+            
+            mIoU = compute_mIoU(predictions, masks, NUM_CLASSES)
+
+            plot_prediction(images[0], masks[0], predictions[0], alpha=0.4, title="Prediction", description=f"mIoU: {mIoU*100:.3f} %")
+
+            
+
+
+
+
+
+
 
 
 
@@ -718,7 +747,7 @@ def test(model_name, model, valloader, device, monitor):
 def main():
     args = parse_args()
 
-    if args.train and args.test:
+    if args.train + args.test + args.predict > 1:
         raise Exception("Both train and test arguments are selected")
 
     set_seed(args.seed)
@@ -789,7 +818,7 @@ def main():
         )
 
         model = get_model(args.model_name, device)
-        model = load_model(model, f"{res_dir}/weights/{args.test_model_file}", device)
+        model = load_model(model, f"{res_dir}/weights/{args.model_file}", device)
 
         log_testing_setup(device, args, test_monitor)
 
@@ -799,6 +828,27 @@ def main():
             valloader=valloader,
             device=device,
             monitor=test_monitor
+        )
+
+    
+    if args.predict:
+        res_dir = get_results_dir(args.store, args.model_name, args.version)
+
+        trainloader, valloader, _ = dataset_preprocessing(
+            domain=args.target_domain,
+            batch_size=1,
+            data_augmentation=False,
+            model_name=args.model_name
+        )
+
+        model = get_model(args.model_name, device)
+        model = load_model(model, f"{res_dir}/weights/{args.model_file}", device)
+
+        predict(
+            model_name=args.model_name,
+            model=model,
+            valloader=valloader,
+            device=device
         )
 
 
