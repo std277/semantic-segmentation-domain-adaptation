@@ -564,8 +564,8 @@ def train(model_name, model, model_number, trainloader, valloader, criterion, op
                 h, w = masks.size(1), masks.size(2)
                 ph, pw = logits[0].size(2), logits[0].size(3)
                 if ph != h or pw != w:
-                    for i in range(len(logits)):
-                        logits[i] = F.interpolate(logits[i], size=(h, w), mode='bilinear', align_corners=False)
+                    for j in range(len(logits)):
+                        logits[j] = F.interpolate(logits[j], size=(h, w), mode='bilinear', align_corners=False)
 
                 loss_s = criterion(logits[:-1], masks, balance_weights=[0.4, 1.0])
 
@@ -629,8 +629,8 @@ def train(model_name, model, model_number, trainloader, valloader, criterion, op
                     h, w = masks.size(1), masks.size(2)
                     ph, pw = logits[0].size(2), logits[0].size(3)
                     if ph != h or pw != w:
-                        for i in range(len(logits)):
-                            logits[i] = F.interpolate(logits[i], size=(h, w), mode='bilinear', align_corners=False)
+                        for j in range(len(logits)):
+                            logits[j] = F.interpolate(logits[j], size=(h, w), mode='bilinear', align_corners=False)
 
                     loss_s = criterion(logits[:-1], masks, balance_weights=[0.4, 1.0])
 
@@ -723,8 +723,8 @@ def test(model_name, model, valloader, device, monitor):
                 h, w = masks.size(1), masks.size(2)
                 ph, pw = logits[0].size(2), logits[0].size(3)
                 if ph != h or pw != w:
-                    for i in range(len(logits)):
-                        logits[i] = F.interpolate(logits[i], size=(h, w), mode='bilinear', align_corners=False)
+                    for j in range(len(logits)):
+                        logits[j] = F.interpolate(logits[j], size=(h, w), mode='bilinear', align_corners=False)
 
                 logits = logits[-2]
 
@@ -773,8 +773,8 @@ def predict(model_name, model, valloader, device):
                 h, w = masks.size(1), masks.size(2)
                 ph, pw = logits[0].size(2), logits[0].size(3)
                 if ph != h or pw != w:
-                    for i in range(len(logits)):
-                        logits[i] = F.interpolate(logits[i], size=(h, w), mode='bilinear', align_corners=False)
+                    for j in range(len(logits)):
+                        logits[j] = F.interpolate(logits[j], size=(h, w), mode='bilinear', align_corners=False)
 
                 logits = logits[-2]
 

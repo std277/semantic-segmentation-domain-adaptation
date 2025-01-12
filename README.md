@@ -3,17 +3,33 @@ Real-time Domain Adaptation in Semantic Segmentation
 
 ## Trainings
 
+Model name: `DeepLabV2_ResNet101`
+
+Resizing: (512, 512)
+
+| VERSION | DATA AUG | SRC DOMAIN | BATCH SIZE | CRITERION            | OPTIMIZER                                         | SCHEDULER                        | NUM_EPOCHS | TARGET DOMAIN | mIoU (%) |
+|---------|----------|------------|------------|----------------------|---------------------------------------------------|----------------------------------|------------|---------------|----------|
+| 0       | True     | Rural      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 20         | Rural         |     |
+
+
+
 Model name: `PIDNet_S`
 
 Resizing: (512, 512)
 
 | VERSION | DATA AUG | SRC DOMAIN | BATCH SIZE | CRITERION            | OPTIMIZER                                         | SCHEDULER                        | NUM_EPOCHS | TARGET DOMAIN | mIoU (%) |
 |---------|----------|------------|------------|----------------------|---------------------------------------------------|----------------------------------|------------|---------------|----------|
-| 0       | True     | Rural      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 30         | Rural         |     |
-| 1       | True     | Rural      | 6          | OhemCrossEntropyLoss | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 30         | Rural         |     |
+| 0       | True     | Rural      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 100        | Rural         |     |
+| 1       | True     | Rural      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 20         | Rural         |     |
+| 2       | True     | Rural      | 6          | OhemCrossEntropyLoss | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 20         | Rural         |     |
 
 
 Notes:
+- PIDNet_S training locally
+- DeepLabv2 training on colab
+
+Next steps:
+- Check everything
 - Fix OhemCrossEntropyLoss
 
 
@@ -27,6 +43,8 @@ Notes:
 ## Old Trainings
 
 Model name: `DeepLabV2_ResNet101`
+
+Resizing: (512, 512)
 
 | VERSION | DATA AUG | SRC DOMAIN | BATCH SIZE | OPTIMIZER                                         | SCHEDULER                        | NUM_EPOCHS | TARGET DOMAIN | mIoU (%) |
 |---------|----------|------------|------------|---------------------------------------------------|----------------------------------|------------|---------------|----------|
