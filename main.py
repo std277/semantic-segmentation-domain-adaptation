@@ -442,7 +442,7 @@ def get_criterion(args):
     if args.criterion == "CrossEntropyLoss":
         criterion = CrossEntropyLoss(ignore_label=255)
     elif args.criterion == "OhemCrossEntropyLoss":
-        criterion = OhemCrossEntropyLoss(ignore_label=255)
+        criterion = OhemCrossEntropyLoss(ignore_label=255, thres=0.9, min_kept=131072)
     else:
         raise Exception(f"Criterion {args.criterion} doesn't exist")
     return criterion

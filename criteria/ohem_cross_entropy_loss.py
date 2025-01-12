@@ -5,7 +5,7 @@ from torch.nn import functional as F
 
 
 class OhemCrossEntropyLoss(nn.Module):
-    def __init__(self, ignore_label=-1, thres=0.7,
+    def __init__(self, ignore_label=255, thres=0.7,
                  min_kept=100000, weight=None):
         super(OhemCrossEntropyLoss, self).__init__()
         self.thresh = thres

@@ -36,10 +36,10 @@
 python3 main.py \
     --train \
     --model_name PIDNet_S \
-    --version T \
+    --version 0 \
     --source_domain Rural \
     --data_augmentation \
-    --batch_size 2 \
+    --batch_size 6 \
     --criterion CrossEntropyLoss \
     --optimizer SGD \
     --scheduler PolynomialLR \
