@@ -538,6 +538,11 @@ def train(model_name, model, model_number, trainloader, valloader, criterion, op
     best_val_loss = None
     patience_counter = 0
 
+    if device == "cuda":
+        scaler = GradScaler(device)
+    else:
+        scaler = None
+
     for e in range(init_epoch-1, epochs):
         # Training
         monitor.start(desc=f"Epoch {e + 1}/{epochs}", max_progress=len(trainloader))
@@ -555,34 +560,82 @@ def train(model_name, model, model_number, trainloader, valloader, criterion, op
             images, masks = images.to(device), masks.to(device)
 
             optimizer.zero_grad()
+            
+            # if scaler:
+            #     with autocast():
+            #         logits = model(images)
+            #         # outputs = torch.argmax(torch.softmax(logits, dim=1), dim=1)
+            #         loss = loss_function(logits, masks)
+            #     scaler.scale(loss).backward()
+            #     scaler.step(optimizer)
+            #     scaler.update()
+            # else:
+            #     logits = model(images)
+            #     # outputs = torch.argmax(torch.softmax(logits, dim=1), dim=1)
+            #     loss = loss_function(logits, masks)
+            #     loss.backward()
+            #     # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            #     optimizer.step()
 
-            if model_name in ("DeepLabV2_ResNet101",):
-                logits = model(images)
-                loss = criterion(logits, masks)
+            if scaler:
+                with autocast():
+                    if model_name in ("DeepLabV2_ResNet101",):
+                        logits = model(images)
+                        loss = criterion(logits, masks)
 
-            elif model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
-                logits = model(images)
+                    elif model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
+                        logits = model(images)
 
-                h, w = masks.size(1), masks.size(2)
-                ph, pw = logits[0].size(2), logits[0].size(3)
-                if ph != h or pw != w:
-                    for j in range(len(logits)):
-                        logits[j] = F.interpolate(logits[j], size=(h, w), mode='bilinear', align_corners=False)
+                        h, w = masks.size(1), masks.size(2)
+                        ph, pw = logits[0].size(2), logits[0].size(3)
+                        if ph != h or pw != w:
+                            for j in range(len(logits)):
+                                logits[j] = F.interpolate(logits[j], size=(h, w), mode='bilinear', align_corners=False)
 
-                loss_s = criterion(logits[:-1], masks, balance_weights=[0.4, 1.0])
+                        loss_s = criterion(logits[:-1], masks, balance_weights=[0.4, 1.0])
 
-                filler = torch.ones_like(masks) * 255
-                bd_label = torch.where(F.sigmoid(logits[-1][:,0,:,:])>0.8, masks, filler)
-                loss_sb = criterion(logits[-2], bd_label)
-                
-                loss = loss_s + loss_sb
+                        filler = torch.ones_like(masks) * 255
+                        bd_label = torch.where(F.sigmoid(logits[-1][:,0,:,:])>0.8, masks, filler)
+                        loss_sb = criterion(logits[-2], bd_label)
+                        
+                        loss = loss_s + loss_sb
 
-                logits = logits[-2]
+                        logits = logits[-2]
 
-            loss.backward()
+                scaler.scale(loss).backward()
 
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            optimizer.step()
+                # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                scaler.step(optimizer)
+                scaler.update()
+
+            else:
+                if model_name in ("DeepLabV2_ResNet101",):
+                    logits = model(images)
+                    loss = criterion(logits, masks)
+
+                elif model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
+                    logits = model(images)
+
+                    h, w = masks.size(1), masks.size(2)
+                    ph, pw = logits[0].size(2), logits[0].size(3)
+                    if ph != h or pw != w:
+                        for j in range(len(logits)):
+                            logits[j] = F.interpolate(logits[j], size=(h, w), mode='bilinear', align_corners=False)
+
+                    loss_s = criterion(logits[:-1], masks, balance_weights=[0.4, 1.0])
+
+                    filler = torch.ones_like(masks) * 255
+                    bd_label = torch.where(F.sigmoid(logits[-1][:,0,:,:])>0.8, masks, filler)
+                    loss_sb = criterion(logits[-2], bd_label)
+                    
+                    loss = loss_s + loss_sb
+
+                    logits = logits[-2]
+
+                loss.backward()
+
+                # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                optimizer.step()
 
             predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
             
