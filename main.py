@@ -534,7 +534,7 @@ def compute_mIoU(predictions, masks, num_classes):
 
 
 
-def train(model_name, model, model_number, trainloader, valloader, criterion, optimizer, scheduler, epochs, init_epoch, patience, device, monitor, res_dir):
+def train_deeplabv2(model, model_number, trainloader, valloader, criterion, optimizer, scheduler, epochs, init_epoch, patience, device, monitor, res_dir):
     cudnn.benchmark = True
 
     train_losses = []
@@ -564,28 +564,8 @@ def train(model_name, model, model_number, trainloader, valloader, criterion, op
 
             optimizer.zero_grad()
 
-            if model_name in ("DeepLabV2_ResNet101",):
-                logits = model(images)
-                loss = criterion(logits, masks)
-
-            elif model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
-                logits = model(images)
-
-                h, w = masks.size(1), masks.size(2)
-                ph, pw = logits[0].size(2), logits[0].size(3)
-                if ph != h or pw != w:
-                    for j in range(len(logits)):
-                        logits[j] = F.interpolate(logits[j], size=(h, w), mode='bilinear', align_corners=False)
-
-                loss_s = criterion(logits[:-1], masks, balance_weights=[0.4, 1.0])
-
-                filler = torch.ones_like(masks) * 255
-                bd_label = torch.where(F.sigmoid(logits[-1][:,0,:,:])>0.8, masks, filler)
-                loss_sb = criterion(logits[-2], bd_label)
-                
-                loss = loss_s + loss_sb
-
-                logits = logits[-2]
+            logits = model(images)
+            loss = criterion(logits, masks)
 
             loss.backward()
 
@@ -630,28 +610,9 @@ def train(model_name, model, model_number, trainloader, valloader, criterion, op
         with torch.no_grad():
             for i, (images, masks) in enumerate(valloader):
                 images, masks = images.to(device), masks.to(device)
-                if model_name in ("DeepLabV2_ResNet101",):
-                    logits = model(images)
-                    loss = criterion(logits, masks)
 
-                elif model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
-                    logits = model(images)
-
-                    h, w = masks.size(1), masks.size(2)
-                    ph, pw = logits[0].size(2), logits[0].size(3)
-                    if ph != h or pw != w:
-                        for j in range(len(logits)):
-                            logits[j] = F.interpolate(logits[j], size=(h, w), mode='bilinear', align_corners=False)
-
-                    loss_s = criterion(logits[:-1], masks, balance_weights=[0.4, 1.0])
-
-                    filler = torch.ones_like(masks) * 255
-                    bd_label = torch.where(F.sigmoid(logits[-1][:,0,:,:])>0.8, masks, filler)
-                    loss_sb = criterion(logits[-2], bd_label)
-                
-                    loss = loss_s + loss_sb
-
-                    logits = logits[-2]
+                logits = model(images)
+                loss = criterion(logits, masks)
                 
                 predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
                 
@@ -700,6 +661,164 @@ def train(model_name, model, model_number, trainloader, valloader, criterion, op
     monitor.print_stats()
 
 
+
+
+def train_pidnet(model, model_number, trainloader, valloader, criterion, optimizer, scheduler, epochs, init_epoch, patience, device, monitor, res_dir):
+    cudnn.benchmark = True
+
+    train_losses = []
+    val_losses = []
+    train_mIoUs = []
+    val_mIoUs = []
+    learning_rates = []
+
+    best_val_loss = None
+    patience_counter = 0
+
+    for e in range(init_epoch-1, epochs):
+        # Training
+        monitor.start(desc=f"Epoch {e + 1}/{epochs}", max_progress=len(trainloader))
+
+        learning_rate = scheduler.get_last_lr()[0]
+        learning_rates.append(learning_rate)
+
+        cumulative_loss = 0.0
+        cumulative_mIoU = 0.0
+        count = 0
+        train_mIoU = 0.0
+
+        model.train()
+        for i, (images, masks) in enumerate(trainloader):
+            images, masks = images.to(device), masks.to(device)
+
+            optimizer.zero_grad()
+
+            logits = model(images)
+
+            h, w = masks.size(1), masks.size(2)
+            ph, pw = logits[0].size(2), logits[0].size(3)
+            if ph != h or pw != w:
+                for j in range(len(logits)):
+                    logits[j] = F.interpolate(logits[j], size=(h, w), mode='bilinear', align_corners=False)
+
+            loss_s = criterion(logits[:-1], masks, balance_weights=[0.4, 1.0])
+
+            filler = torch.ones_like(masks) * 255
+            bd_label = torch.where(F.sigmoid(logits[-1][:,0,:,:])>0.8, masks, filler)
+            loss_sb = criterion(logits[-2], bd_label)
+            
+            loss = loss_s + loss_sb
+
+            loss.backward()
+
+            # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            optimizer.step()
+
+            predictions = torch.argmax(torch.softmax(logits[-2], dim=1), dim=1)
+            
+            count += 1
+
+            cumulative_loss += loss.item()
+            train_loss = cumulative_loss / count
+
+            mIoU = compute_mIoU(predictions, masks, NUM_CLASSES)
+            cumulative_mIoU += mIoU
+            train_mIoU = cumulative_mIoU / count
+
+            monitor.update(
+                i + 1,
+                learning_rate=f"{learning_rate:.5f}",
+                train_loss=f"{train_loss:.4f}",
+                train_mIoU=f"{train_mIoU:.4f}",
+            )
+
+        train_losses.append(train_loss)
+        train_mIoUs.append(train_mIoU)
+
+        monitor.stop()
+
+
+
+
+        # Validation
+        monitor.start(desc=f"Validation", max_progress=len(valloader))
+
+        cumulative_loss = 0.0
+        cumulative_mIoU = 0.0
+        count = 0
+        val_mIoU = 0.0
+
+        model.eval()
+        with torch.no_grad():
+            for i, (images, masks) in enumerate(valloader):
+                images, masks = images.to(device), masks.to(device)
+
+                logits = model(images)
+
+                h, w = masks.size(1), masks.size(2)
+                ph, pw = logits[0].size(2), logits[0].size(3)
+                if ph != h or pw != w:
+                    for j in range(len(logits)):
+                        logits[j] = F.interpolate(logits[j], size=(h, w), mode='bilinear', align_corners=False)
+
+                loss_s = criterion(logits[:-1], masks, balance_weights=[0.4, 1.0])
+
+                filler = torch.ones_like(masks) * 255
+                bd_label = torch.where(F.sigmoid(logits[-1][:,0,:,:])>0.8, masks, filler)
+                loss_sb = criterion(logits[-2], bd_label)
+            
+                loss = loss_s + loss_sb
+                
+                predictions = torch.argmax(torch.softmax(logits[-2], dim=1), dim=1)
+                
+                count += 1
+                
+                cumulative_loss += loss.item()
+                val_loss = cumulative_loss / count
+
+                mIoU = compute_mIoU(predictions, masks, NUM_CLASSES)
+                cumulative_mIoU += mIoU
+                val_mIoU = cumulative_mIoU / count
+            
+                monitor.update(
+                    i + 1,
+                    val_loss=f"{val_loss:.4f}",
+                    val_mIoU=f"{val_mIoU:.4f}",
+                )
+
+        val_losses.append(val_loss)
+        val_mIoUs.append(val_mIoU)
+
+        monitor.stop()
+
+        if best_val_loss is None or val_loss < best_val_loss:
+            save_model(model, f"{res_dir}/weights/best_{model_number}.pt")
+            monitor.log(f"Model saved as best_{model_number}.pt\n")
+            best_val_loss = val_loss
+            patience_counter = 0
+        else:
+            patience_counter += 1
+
+        if patience_counter >= patience:
+            monitor.log(f"Early stopping after {e + 1} epochs\n")
+            break
+
+
+        scheduler.step()
+
+        save_model(model, f"{res_dir}/weights/last_{model_number}.pt")
+
+        plot_loss(train_losses, val_losses, model_number, res_dir)
+        plot_mIoU(train_mIoUs, val_mIoUs, model_number, res_dir)
+        plot_learning_rate(learning_rates, model_number, res_dir)
+
+
+    monitor.print_stats()
+
+
+
+
+
 def test(model_name, model, valloader, device, monitor):
     monitor.start(desc=f"Testing", max_progress=len(valloader))
 
@@ -737,7 +856,7 @@ def test(model_name, model, valloader, device, monitor):
                     for j in range(len(logits)):
                         logits[j] = F.interpolate(logits[j], size=(h, w), mode='bilinear', align_corners=False)
 
-                logits = logits[-3]
+                logits = logits[-2]
 
             batch_inference_time = (end_time - start_time) / images.size(0)
             inference_times.append(batch_inference_time)
@@ -852,23 +971,41 @@ def main():
 
         log_training_setup(model, criterion, optimizer, scheduler, device, args, train_monitor)
 
-        train(
-            model_name=args.model_name,
-            model=model,
-            model_number=model_number,
-            trainloader=trainloader,
-            valloader=valloader,
-            criterion=criterion,
-            optimizer=optimizer,
-            scheduler=scheduler,
-            epochs=args.epochs,
-            init_epoch=args.resume_epoch,
-            patience=args.patience,
-            device=device,
-            monitor=train_monitor,
-            res_dir=res_dir
-        )
-
+        if args.model_name in ("DeepLabV2_ResNet101",):
+            train_deeplabv2(
+                model_name=args.model_name,
+                model=model,
+                model_number=model_number,
+                trainloader=trainloader,
+                valloader=valloader,
+                criterion=criterion,
+                optimizer=optimizer,
+                scheduler=scheduler,
+                epochs=args.epochs,
+                init_epoch=args.resume_epoch,
+                patience=args.patience,
+                device=device,
+                monitor=train_monitor,
+                res_dir=res_dir
+            )
+        elif args.model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
+            train_pidnet(
+                model_name=args.model_name,
+                model=model,
+                model_number=model_number,
+                trainloader=trainloader,
+                valloader=valloader,
+                criterion=criterion,
+                optimizer=optimizer,
+                scheduler=scheduler,
+                epochs=args.epochs,
+                init_epoch=args.resume_epoch,
+                patience=args.patience,
+                device=device,
+                monitor=train_monitor,
+                res_dir=res_dir
+            )
+            
 
     if args.test:
         res_dir = get_results_dir(args.store, args.model_name, args.version)
