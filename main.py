@@ -561,7 +561,7 @@ def train(model_name, model, model_number, trainloader, valloader, criterion, op
         model.train()
         for i, (images, masks) in enumerate(trainloader):
             images, masks = images.to(device), masks.to(device)
-
+            print("DCSDCSDCHBSDUYCGSYDGCCHDGUYSDGCYUDGCDG")
             optimizer.zero_grad()
 
             if model_name in ("DeepLabV2_ResNet101",):
