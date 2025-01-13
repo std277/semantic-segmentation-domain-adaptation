@@ -554,9 +554,9 @@ def train_deeplabv2(model, model_number, trainloader, valloader, criterion, opti
         learning_rates.append(learning_rate)
 
         cumulative_loss = 0.0
-        cumulative_mIoU = 0.0
+        # cumulative_mIoU = 0.0
         count = 0
-        train_mIoU = 0.0
+        # train_mIoU = 0.0
 
         model.train()
         for i, (images, masks) in enumerate(trainloader):
@@ -572,26 +572,26 @@ def train_deeplabv2(model, model_number, trainloader, valloader, criterion, opti
             # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
 
-            predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
+            # predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
             
             count += 1
 
             cumulative_loss += loss.item()
             train_loss = cumulative_loss / count
 
-            mIoU = compute_mIoU(predictions, masks, NUM_CLASSES)
-            cumulative_mIoU += mIoU
-            train_mIoU = cumulative_mIoU / count
+            # mIoU = compute_mIoU(predictions, masks, NUM_CLASSES)
+            # cumulative_mIoU += mIoU
+            # train_mIoU = cumulative_mIoU / count
 
             monitor.update(
                 i + 1,
                 learning_rate=f"{learning_rate:.5f}",
                 train_loss=f"{train_loss:.4f}",
-                train_mIoU=f"{train_mIoU:.4f}",
+                # train_mIoU=f"{train_mIoU:.4f}",
             )
 
         train_losses.append(train_loss)
-        train_mIoUs.append(train_mIoU)
+        # train_mIoUs.append(train_mIoU)
 
         monitor.stop()
 
