@@ -973,7 +973,6 @@ def main():
 
         if args.model_name in ("DeepLabV2_ResNet101",):
             train_deeplabv2(
-                model_name=args.model_name,
                 model=model,
                 model_number=model_number,
                 trainloader=trainloader,
@@ -990,7 +989,6 @@ def main():
             )
         elif args.model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
             train_pidnet(
-                model_name=args.model_name,
                 model=model,
                 model_number=model_number,
                 trainloader=trainloader,
@@ -1005,7 +1003,7 @@ def main():
                 monitor=train_monitor,
                 res_dir=res_dir
             )
-            
+
 
     if args.test:
         res_dir = get_results_dir(args.store, args.model_name, args.version)
