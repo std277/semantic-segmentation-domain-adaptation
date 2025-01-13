@@ -25,7 +25,7 @@ from fvcore.nn import FlopCountAnalysis, flop_count_table
 
 from datasets import LoveDADataset, MEAN, STD, NUM_CLASSES
 from models import DeepLabV2_ResNet101, PIDNet_S, PIDNet_M, PIDNet_L
-from criteria import CrossEntropyLoss, OhemCrossEntropyLoss
+from criteria import CrossEntropyLoss, OhemCrossEntropyLoss, BoundaryLoss
 from utils import *
 
 
@@ -440,24 +440,6 @@ def load_model(model, file_name, device):
     return model
 
 
-# def get_criterion(args):
-#     if args.model_name in ("DeepLabV2_ResNet101",):
-#         if args.criterion == "CrossEntropyLoss":
-#             criterion = nn.CrossEntropyLoss(ignore_index=255)
-#         else:
-#             raise Exception(f"Criterion {args.criterion} doesn't exist")
-    
-#     elif args.model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
-#         if args.criterion == "CrossEntropyLoss":
-#             criterion = CrossEntropyLoss(ignore_label=255)
-#         elif args.criterion == "OhemCrossEntropyLoss":
-#             criterion = OhemCrossEntropyLoss(ignore_label=255, thres=0.9, min_kept=131072)
-#         else:
-#             raise Exception(f"Criterion {args.criterion} doesn't exist")
-    
-#     return criterion
-
-
 def get_criterion(args):
 
     if args.criterion == "CrossEntropyLoss":
@@ -467,7 +449,9 @@ def get_criterion(args):
     else:
         raise Exception(f"Criterion {args.criterion} doesn't exist")
     
-    return criterion
+    bd_criterion = BoundaryLoss()
+
+    return criterion, bd_criterion
 
 
 
@@ -571,7 +555,7 @@ def train_deeplabv2(model, model_number, trainloader, valloader, criterion, opti
         train_mIoU = 0.0
 
         model.train()
-        for i, (images, masks) in enumerate(trainloader):
+        for i, (images, masks, _) in enumerate(trainloader):
             images, masks = images.to(device), masks.to(device)
 
             optimizer.zero_grad()
@@ -620,7 +604,7 @@ def train_deeplabv2(model, model_number, trainloader, valloader, criterion, opti
 
         model.eval()
         with torch.no_grad():
-            for i, (images, masks) in enumerate(valloader):
+            for i, (images, masks, _) in enumerate(valloader):
                 images, masks = images.to(device), masks.to(device)
 
                 logits = model(images)
@@ -675,7 +659,7 @@ def train_deeplabv2(model, model_number, trainloader, valloader, criterion, opti
 
 
 
-def train_pidnet(model, model_number, trainloader, valloader, criterion, optimizer, scheduler, epochs, init_epoch, patience, device, monitor, res_dir):
+def train_pidnet(model, model_number, trainloader, valloader, criterion, bd_criterion, optimizer, scheduler, epochs, init_epoch, patience, device, monitor, res_dir):
     cudnn.benchmark = True
 
     train_losses = []
@@ -700,8 +684,8 @@ def train_pidnet(model, model_number, trainloader, valloader, criterion, optimiz
         train_mIoU = 0.0
 
         model.train()
-        for i, (images, masks) in enumerate(trainloader):
-            images, masks = images.to(device), masks.to(device)
+        for i, (images, masks, boundaries) in enumerate(trainloader):
+            images, masks, boundaries = images.to(device), masks.to(device), boundaries.to(device)
 
             optimizer.zero_grad()
 
@@ -714,12 +698,13 @@ def train_pidnet(model, model_number, trainloader, valloader, criterion, optimiz
                     logits[j] = F.interpolate(logits[j], size=(h, w), mode='bilinear', align_corners=False)
 
             loss_s = criterion(logits[:-1], masks, balance_weights=[0.4, 1.0])
+            loss_b = bd_criterion(logits[-1], boundaries)
 
             filler = torch.ones_like(masks) * 255
             bd_label = torch.where(F.sigmoid(logits[-1][:,0,:,:])>0.8, masks, filler)
             loss_sb = criterion(logits[-2], bd_label)
             
-            loss = loss_s + loss_sb
+            loss = loss_s + loss_b + loss_sb
 
             loss.backward()
 
@@ -761,8 +746,8 @@ def train_pidnet(model, model_number, trainloader, valloader, criterion, optimiz
 
         model.eval()
         with torch.no_grad():
-            for i, (images, masks) in enumerate(valloader):
-                images, masks = images.to(device), masks.to(device)
+            for i, (images, masks, boundaries) in enumerate(valloader):
+                images, masks, boundaries = images.to(device), masks.to(device), boundaries.to(device)
 
                 logits = model(images)
 
@@ -773,13 +758,14 @@ def train_pidnet(model, model_number, trainloader, valloader, criterion, optimiz
                         logits[j] = F.interpolate(logits[j], size=(h, w), mode='bilinear', align_corners=False)
 
                 loss_s = criterion(logits[:-1], masks, balance_weights=[0.4, 1.0])
+                loss_b = bd_criterion(logits[-1], boundaries)
 
                 filler = torch.ones_like(masks) * 255
                 bd_label = torch.where(F.sigmoid(logits[-1][:,0,:,:])>0.8, masks, filler)
                 loss_sb = criterion(logits[-2], bd_label)
-            
-                loss = loss_s + loss_sb
                 
+                loss = loss_s + loss_b + loss_sb
+                    
                 predictions = torch.argmax(torch.softmax(logits[-2], dim=1), dim=1)
                 
                 count += 1
@@ -849,7 +835,7 @@ def test(model_name, model, valloader, device, monitor):
         flops_count = flop_count_table(flops)
 
         # Testing
-        for i, (images, masks) in enumerate(valloader):
+        for i, (images, masks, _) in enumerate(valloader):
             images, masks = images.to(device), masks.to(device)
 
             if model_name in ("DeepLabV2_ResNet101",):
@@ -907,7 +893,7 @@ def predict(model_name, model, valloader, device):
     with torch.no_grad():
 
         # Predicting
-        for i, (images, masks) in enumerate(valloader):
+        for i, (images, masks, _) in enumerate(valloader):
             images, masks = images.to(device), masks.to(device)
 
             if model_name in ("DeepLabV2_ResNet101",):
@@ -956,7 +942,7 @@ def main():
         file_name = f"{res_dir}/training_log.txt"
         train_monitor = Monitor(file_name, resume=args.resume, inline=False)
 
-        trainloader, valloader, _ = dataset_preprocessing(
+        trainloader, valloader, testloader = dataset_preprocessing(
             domain=args.source_domain,
             batch_size=args.batch_size,
             data_augmentation=args.data_augmentation,
@@ -966,13 +952,14 @@ def main():
         # inspect_dataset(trainloader, valloader, testloader)
         # inspect_dataset_masks(trainloader, valloader, testloader)
 
+
         model = get_model(args.model_name, device)
 
         model_number = get_model_number(res_dir)
         if args.resume:
             model = load_model(model, f"{res_dir}/weights/last_{model_number-1}.pt", device)
 
-        criterion = get_criterion(args)
+        criterion, bd_criterion = get_criterion(args)
         optimizer = get_optimizer(model, args)
         scheduler = get_scheduler(optimizer, args)
 
@@ -1005,6 +992,7 @@ def main():
                 trainloader=trainloader,
                 valloader=valloader,
                 criterion=criterion,
+                bd_criterion=bd_criterion,
                 optimizer=optimizer,
                 scheduler=scheduler,
                 epochs=args.epochs,

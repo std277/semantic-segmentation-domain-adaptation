@@ -50,6 +50,35 @@ class LoveDADataset(Dataset):
 
     def __len__(self):
         return len(self.samples)
+    
+    def _gen_sample(self, image, label,
+                   multi_scale=True, is_flip=True, edge_pad=True, edge_size=4, city=True):
+        
+        edge = cv2.Canny(label, 0.1, 0.2)
+        kernel = np.ones((edge_size, edge_size), np.uint8)
+        if edge_pad:
+            edge = edge[y_k_size:-y_k_size, x_k_size:-x_k_size]
+            edge = np.pad(edge, ((y_k_size,y_k_size),(x_k_size,x_k_size)), mode='constant')
+        edge = (cv2.dilate(edge, kernel, iterations=1)>50)*1.0
+        
+        if multi_scale:
+            rand_scale = 0.5 + random.randint(0, self.scale_factor) / 10.0
+            image, label, edge = self.multi_scale_aug(image, label, edge,
+                                                rand_scale=rand_scale)
+
+        image = self.input_transform(image, city=city)
+        label = self.label_transform(label)
+        
+
+        image = image.transpose((2, 0, 1))
+
+        if is_flip:
+            flip = np.random.choice(2) * 2 - 1
+            image = image[:, :, ::flip]
+            label = label[:, ::flip]
+            edge = edge[:, ::flip]
+
+        return image, label, edge
 
     def __getitem__(self, index):
         img_path, mask_path = self.samples[index]
@@ -71,4 +100,7 @@ class LoveDADataset(Dataset):
             transformation = self.transform(image=image)
             image = transformation['image']
 
-        return image, mask
+        edge = cv2.Canny(mask.numpy().astype(np.uint8), 0.1, 0.2)
+        edge = torch.from_numpy(edge.astype(float))
+
+        return image, mask, edge

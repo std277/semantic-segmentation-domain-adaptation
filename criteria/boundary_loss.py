@@ -23,9 +23,9 @@ def weighted_bce(bd_pre, target):
     return loss
 
 
-class BondaryLoss(nn.Module):
+class BoundaryLoss(nn.Module):
     def __init__(self, coeff_bce = 20.0):
-        super(BondaryLoss, self).__init__()
+        super(BoundaryLoss, self).__init__()
         self.coeff_bce = coeff_bce
         
     def forward(self, bd_pre, bd_gt):
