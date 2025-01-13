@@ -19,18 +19,17 @@ Resizing: (512, 512)
 
 | VERSION | DATA AUG | SRC DOMAIN | BATCH SIZE | CRITERION            | OPTIMIZER                                         | SCHEDULER                        | NUM_EPOCHS | TARGET DOMAIN | mIoU (%) |
 |---------|----------|------------|------------|----------------------|---------------------------------------------------|----------------------------------|------------|---------------|----------|
-| 0       | True     | Rural      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 100        | Rural         | 27.50    |
+| 0       | True     | Rural      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 100        | Rural         |     |
 | 1       | True     | Rural      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 20         | Rural         |     |
 | 2       | True     | Rural      | 6          | OhemCrossEntropyLoss | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 20         | Rural         |     |
 
 
 Notes:
+- DeepLabv2 version 0 training in ~10 min without scaler, check scaler contribution
 
 
 Next steps:
-- PIDNet_S validation on test on which prediction (0 or 1) understand the model
-- Loss function? Understand the (loss_s, loss_sb) contribution
-- Check everything
+- Understand PIDNet and check code
 - Fix OhemCrossEntropyLoss
 
 
