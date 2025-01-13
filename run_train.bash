@@ -6,11 +6,10 @@
 #     --model_name DeepLabV2_ResNet101 \
 #     --version 0 \
 #     --source_domain Rural \
-#     --batch_size 8 \
+#     --batch_size 6 \
+#     --criterion CrossEntropyLoss \
 #     --optimizer SGD \
 #     --scheduler PolynomialLR \
-#     --lr 0.01 \
-#     --power 0.6 \
 #     --epochs 20
 
 
@@ -36,11 +35,11 @@
 python3 main.py \
     --train \
     --model_name PIDNet_S \
-    --version T \
+    --version 0 \
     --source_domain Rural \
     --data_augmentation \
     --batch_size 6 \
     --criterion CrossEntropyLoss \
     --optimizer SGD \
     --scheduler PolynomialLR \
-    --epochs 100
+    --epochs 20

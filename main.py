@@ -558,7 +558,7 @@ def train(model_name, model, model_number, trainloader, valloader, criterion, op
 
             if model_name in ("DeepLabV2_ResNet101",):
                 logits = model(images)
-                loss = criterion([logits], masks)
+                loss = criterion(logits, masks)
 
             elif model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
                 logits = model(images)
@@ -573,37 +573,37 @@ def train(model_name, model, model_number, trainloader, valloader, criterion, op
 
                 filler = torch.ones_like(masks) * 255
                 bd_label = torch.where(F.sigmoid(logits[-1][:,0,:,:])>0.8, masks, filler)
-                loss_sb = criterion([logits[-2]], bd_label)
+                loss_sb = criterion(logits[-2], bd_label)
                 
                 loss = loss_s + loss_sb
 
-                logits = logits[-2]
+                # logits = logits[-2]
 
             loss.backward()
 
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
 
-            predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
+            # predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
             
             count += 1
 
             cumulative_loss += loss.item()
             train_loss = cumulative_loss / count
 
-            mIoU = compute_mIoU(predictions, masks, NUM_CLASSES)
-            cumulative_mIoU += mIoU
-            train_mIoU = cumulative_mIoU / count
+            # mIoU = compute_mIoU(predictions, masks, NUM_CLASSES)
+            # cumulative_mIoU += mIoU
+            # train_mIoU = cumulative_mIoU / count
 
             monitor.update(
                 i + 1,
                 learning_rate=f"{learning_rate:.5f}",
                 train_loss=f"{train_loss:.4f}",
-                train_mIoU=f"{train_mIoU:.4f}",
+                # train_mIoU=f"{train_mIoU:.4f}",
             )
 
         train_losses.append(train_loss)
-        train_mIoUs.append(train_mIoU)
+        # train_mIoUs.append(train_mIoU)
 
         monitor.stop()
 
@@ -624,7 +624,7 @@ def train(model_name, model, model_number, trainloader, valloader, criterion, op
                 images, masks = images.to(device), masks.to(device)
                 if model_name in ("DeepLabV2_ResNet101",):
                     logits = model(images)
-                    loss = criterion([logits], masks)
+                    loss = criterion(logits, masks)
 
                 elif model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
                     logits = model(images)
@@ -639,7 +639,7 @@ def train(model_name, model, model_number, trainloader, valloader, criterion, op
 
                     filler = torch.ones_like(masks) * 255
                     bd_label = torch.where(F.sigmoid(logits[-1][:,0,:,:])>0.8, masks, filler)
-                    loss_sb = criterion([logits[-2]], bd_label)
+                    loss_sb = criterion(logits[-2], bd_label)
                 
                     loss = loss_s + loss_sb
 

@@ -19,9 +19,13 @@ class CrossEntropyLoss(nn.Module):
         return loss
 
     def forward(self, score, target, balance_weights=[0.4, 1.0], sb_weights=1.0):
-        if len(balance_weights) == len(score):
-            return sum([w * self._forward(x, target) for (w, x) in zip(balance_weights, score)])
-        elif len(score) == 1:
-            return sb_weights * self._forward(score[0], target)
+
+        if not (isinstance(score, list) or isinstance(score, tuple)):
+            return sb_weights * self._forward(score, target)
         else:
-            raise ValueError("Lengths of prediction and target are not identical!")
+            if len(balance_weights) == len(score):
+                return sum([w * self._forward(x, target) for (w, x) in zip(balance_weights, score)])
+            elif len(score) == 1:
+                return sb_weights * self._forward(score[0], target)
+            else:
+                raise ValueError("Lengths of prediction and target are not identical!")
