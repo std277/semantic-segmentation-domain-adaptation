@@ -440,20 +440,32 @@ def load_model(model, file_name, device):
     return model
 
 
-def get_criterion(args):
-    if args.model_name in ("DeepLabV2_ResNet101",):
-        if args.criterion == "CrossEntropyLoss":
-            criterion = nn.CrossEntropyLoss(ignore_index=255)
-        else:
-            raise Exception(f"Criterion {args.criterion} doesn't exist")
+# def get_criterion(args):
+#     if args.model_name in ("DeepLabV2_ResNet101",):
+#         if args.criterion == "CrossEntropyLoss":
+#             criterion = nn.CrossEntropyLoss(ignore_index=255)
+#         else:
+#             raise Exception(f"Criterion {args.criterion} doesn't exist")
     
-    elif args.model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
-        if args.criterion == "CrossEntropyLoss":
-            criterion = CrossEntropyLoss(ignore_label=255)
-        elif args.criterion == "OhemCrossEntropyLoss":
-            criterion = OhemCrossEntropyLoss(ignore_label=255, thres=0.9, min_kept=131072)
-        else:
-            raise Exception(f"Criterion {args.criterion} doesn't exist")
+#     elif args.model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
+#         if args.criterion == "CrossEntropyLoss":
+#             criterion = CrossEntropyLoss(ignore_label=255)
+#         elif args.criterion == "OhemCrossEntropyLoss":
+#             criterion = OhemCrossEntropyLoss(ignore_label=255, thres=0.9, min_kept=131072)
+#         else:
+#             raise Exception(f"Criterion {args.criterion} doesn't exist")
+    
+#     return criterion
+
+
+def get_criterion(args):
+
+    if args.criterion == "CrossEntropyLoss":
+        criterion = CrossEntropyLoss(ignore_label=255)
+    elif args.criterion == "OhemCrossEntropyLoss":
+        criterion = OhemCrossEntropyLoss(ignore_label=255, thres=0.9, min_kept=131072)
+    else:
+        raise Exception(f"Criterion {args.criterion} doesn't exist")
     
     return criterion
 
@@ -736,7 +748,6 @@ def train_pidnet(model, model_number, trainloader, valloader, criterion, optimiz
         train_mIoUs.append(train_mIoU)
 
         monitor.stop()
-
 
 
 
