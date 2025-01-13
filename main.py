@@ -829,7 +829,7 @@ def test(model_name, model, valloader, device, monitor):
     with torch.no_grad():
         
         # FLOPs analysis
-        images, _ = next(iter(valloader))
+        images, _, _ = next(iter(valloader))
         images = images.to(device)
         flops = FlopCountAnalysis(model, images)
         flops_count = flop_count_table(flops)

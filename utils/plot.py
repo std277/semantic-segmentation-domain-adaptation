@@ -171,7 +171,7 @@ def inspect_dataset(trainloader, valloader, testloader):
     for type, loader in zip(("Train", "Val", "Test"), (trainloader, valloader, testloader)):
         if loader is not None:
             it = iter(loader)
-            images, masks = next(it)
+            images, masks, _ = next(it)
 
             # for image, mask in zip(images, masks):
             #     plot_image(image, mask if type != "Test" else None, alpha=1., title=f"{type} image sample", show=False)
@@ -182,7 +182,7 @@ def inspect_dataset(trainloader, valloader, testloader):
 
 def inspect_dataset_masks(trainloader, valloader, testloader):
     for type, loader in zip(("Train", "Val", "Test"), (trainloader, valloader, testloader)):
-        for images, masks in iter(loader):
+        for images, masks, _ in iter(loader):
             for image, mask in zip(images, masks):
                 if 255 in mask:
                     print(f"Mask:\n{mask}")
