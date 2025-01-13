@@ -382,24 +382,26 @@ def log_testing_setup(device, args, monitor):
 
 def dataset_preprocessing(domain, batch_size, data_augmentation, model_name):
     # Define transforms
-    augmentation_transform = Compose([
-        Resize(512, 512),
-        Normalize(mean=MEAN, std=STD),
-        HorizontalFlip(p=0.5),
-        RandomBrightnessContrast(p=0.2),
-        ShiftScaleRotate(shift_limit=0.1, scale_limit=0.2, rotate_limit=15, p=0.3),
-        CoarseDropout(max_holes=8, max_height=32, max_width=32, p=0.3),
-        ToTensorV2()
-    ])
 
-    transform = Compose([
-        Resize(512, 512),
-        Normalize(mean=MEAN, std=STD),
-        ToTensorV2()
-    ])
+    if data_augmentation:
+        transform = Compose([
+            Resize(512, 512),
+            Normalize(mean=MEAN, std=STD),
+            HorizontalFlip(p=0.5),
+            RandomBrightnessContrast(p=0.2),
+            ShiftScaleRotate(shift_limit=0.1, scale_limit=0.2, rotate_limit=15, p=0.3),
+            CoarseDropout(max_holes=8, max_height=32, max_width=32, p=0.3),
+            ToTensorV2()
+        ])
+    else:
+        transform = Compose([
+            Resize(512, 512),
+            Normalize(mean=MEAN, std=STD),
+            ToTensorV2()
+        ])
 
     # Define the Dataset object for training, validation and testing
-    traindataset = LoveDADataset(dataset_type="Train", domain=domain, transform=(augmentation_transform if data_augmentation else transform), root_dir='data')
+    traindataset = LoveDADataset(dataset_type="Train", domain=domain, transform=transform, root_dir='data')
     valdataset = LoveDADataset(dataset_type="Val", domain=domain, transform=transform, root_dir='data')
     testdataset = LoveDADataset(dataset_type="Test", domain=domain, transform=transform, root_dir='data')
 
@@ -578,7 +580,8 @@ def train(model_name, model, model_number, trainloader, valloader, criterion, op
                 logits = logits[-2]
 
             loss.backward()
-            # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
 
             predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
@@ -726,7 +729,7 @@ def test(model_name, model, valloader, device, monitor):
                     for j in range(len(logits)):
                         logits[j] = F.interpolate(logits[j], size=(h, w), mode='bilinear', align_corners=False)
 
-                logits = logits[-2]
+                logits = logits[-3]
 
             batch_inference_time = (end_time - start_time) / images.size(0)
             inference_times.append(batch_inference_time)
@@ -749,6 +752,9 @@ def test(model_name, model, valloader, device, monitor):
     mean_inference_time = np.mean(inference_times)
     std_inference_time = np.std(inference_times)
 
+    total_params = sum(p.numel() for p in model.parameters())
+
+    monitor.log(f"Model parameters: {total_params}")
     monitor.log(f"FLOPs:\n{flops_count}\n")
     monitor.log(f"Mean Intersection over Union on test images: {test_mIoU*100:.3f} %")
     monitor.log(f"Mean inference time: {mean_inference_time * 1000:.3f} ms")
@@ -801,7 +807,7 @@ def main():
     args = parse_args()
 
     if args.train + args.test + args.predict > 1:
-        raise Exception("Both train and test arguments are selected")
+        raise Exception("Only one task allowed, selected more than one (train, test, predict)")
 
     set_seed(args.seed)
     device = get_device()

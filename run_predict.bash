@@ -14,6 +14,6 @@
 python3 main.py \
     --predict \
     --model_name PIDNet_S \
-    --version 1 \
+    --version T \
     --model_file best_0.pt \
     --target_domain Rural

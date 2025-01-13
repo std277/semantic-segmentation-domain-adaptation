@@ -31,16 +31,16 @@
 # python3 main.py \
 #     --test \
 #     --model_name PIDNet_S \
-#     --version 2 \
+#     --version T \
 #     --model_file last_0.pt \
 #     --target_domain Rural \
-#     --batch_size 8
+#     --batch_size 6
 
 
-# python3 main.py \
-#     --test \
-#     --model_name PIDNet_S \
-#     --version X \
-#     --model_file best_0.pt \
-#     --target_domain Rural \
-#     --batch_size 8
+python3 main.py \
+    --test \
+    --model_name PIDNet_S \
+    --version T \
+    --model_file best_0.pt \
+    --target_domain Rural \
+    --batch_size 6
