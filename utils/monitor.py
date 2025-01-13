@@ -88,7 +88,7 @@ class Monitor:
         if self.inline:
             sys.stdout.write(progress_line + time_line + stats_line + "\r")
         else:
-            sys.stdout.write(progress_line + time_line + stats_line)
+            sys.stdout.write(progress_line + time_line + stats_line + "\n")
         sys.stdout.flush()
 
         if self.file and progress == self.max_progress:
