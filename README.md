@@ -9,7 +9,7 @@ Resizing: (512, 512)
 
 | VERSION | DATA AUG | SRC DOMAIN | BATCH SIZE | CRITERION            | OPTIMIZER                                         | SCHEDULER                        | NUM_EPOCHS | mIoU (%) (Urban) | mIoU (%) (Rural) |
 |---------|----------|------------|------------|----------------------|---------------------------------------------------|----------------------------------|------------|------------------|------------------|
-| 0       | False    | Rural      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 20         |             | 22.42            |
+| 0       | False    | Rural      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 20         | 17.85            | 22.42            |
 
 
 Model parameters: 43016284
