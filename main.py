@@ -942,16 +942,14 @@ def main():
         file_name = f"{res_dir}/training_log.txt"
         train_monitor = Monitor(file_name, resume=args.resume, inline=False)
 
-        trainloader, valloader, testloader = dataset_preprocessing(
+        trainloader, valloader, _ = dataset_preprocessing(
             domain=args.source_domain,
             batch_size=args.batch_size,
             data_augmentation=args.data_augmentation,
             model_name=args.model_name
         )
         
-        # inspect_dataset(trainloader, valloader, testloader)
-        # inspect_dataset_masks(trainloader, valloader, testloader)
-
+        # inspect_dataset(trainloader, valloader)
 
         model = get_model(args.model_name, device)
 

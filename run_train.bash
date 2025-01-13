@@ -32,8 +32,22 @@
 
 
 # Train PIDNet_S
+python3 main.py \
+    --train \
+    --model_name PIDNet_S \
+    --version T \
+    --source_domain Rural \
+    --batch_size 6 \
+    --criterion CrossEntropyLoss \
+    --optimizer SGD \
+    --scheduler PolynomialLR \
+    --epochs 20
+
+
 # python3 main.py \
 #     --train \
+#     --resume \
+#     --resume_epoch 13 \
 #     --model_name PIDNet_S \
 #     --version 0 \
 #     --source_domain Rural \
@@ -42,17 +56,3 @@
 #     --optimizer SGD \
 #     --scheduler PolynomialLR \
 #     --epochs 20
-
-
-python3 main.py \
-    --train \
-    --resume \
-    --resume_epoch 13 \
-    --model_name PIDNet_S \
-    --version 0 \
-    --source_domain Rural \
-    --batch_size 6 \
-    --criterion CrossEntropyLoss \
-    --optimizer SGD \
-    --scheduler PolynomialLR \
-    --epochs 20
