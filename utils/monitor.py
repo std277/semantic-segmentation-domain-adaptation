@@ -3,10 +3,11 @@ import math
 import sys
 
 class Monitor:
-    def __init__(self, file_name=None, resume=False, max_len=120):
+    def __init__(self, file_name=None, resume=False, max_len=120, inline=True):
         self.times = []
         self.monitor_id = 0
         self.max_len = max_len
+        self.inline=inline
 
         self.file = None
         if file_name is not None:
@@ -84,7 +85,10 @@ class Monitor:
         for k, v in kwargs.items():
             stats_line += f"\t{k.replace('_', ' ').capitalize()}: {v} "
 
-        sys.stdout.write(progress_line + time_line + stats_line + "\r")
+        if self.inline:
+            sys.stdout.write(progress_line + time_line + stats_line + "\r")
+        else:
+            sys.stdout.write(progress_line + time_line + stats_line)
         sys.stdout.flush()
 
         if self.file and progress == self.max_progress:

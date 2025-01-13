@@ -561,7 +561,7 @@ def train(model_name, model, model_number, trainloader, valloader, criterion, op
         model.train()
         for i, (images, masks) in enumerate(trainloader):
             images, masks = images.to(device), masks.to(device)
-            print("DCSDCSDCHBSDUYCGSYDGCCHDGUYSDGCYUDGCDG")
+
             optimizer.zero_grad()
 
             if model_name in ("DeepLabV2_ResNet101",):
@@ -824,7 +824,7 @@ def main():
         res_dir = make_results_dir(args.store, args.model_name, args.version, args.resume)
 
         file_name = f"{res_dir}/training_log.txt"
-        train_monitor = Monitor(file_name, resume=args.resume)
+        train_monitor = Monitor(file_name, resume=args.resume, inline=False)
 
         trainloader, valloader, _ = dataset_preprocessing(
             domain=args.source_domain,
@@ -875,7 +875,7 @@ def main():
 
         file_name = f"{res_dir}/testing_log.txt"
         resume = os.path.exists(file_name)
-        test_monitor = Monitor(file_name, resume)
+        test_monitor = Monitor(file_name, resume, inline=False)
 
         trainloader, valloader, _ = dataset_preprocessing(
             domain=args.target_domain,
