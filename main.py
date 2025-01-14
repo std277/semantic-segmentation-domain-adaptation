@@ -934,7 +934,7 @@ def test(model_name, model, valloader, device, monitor):
     monitor.log(f"Mean Intersection over Union on test images: {test_mIoU*100:.3f} %")
     for label in LoveDADatasetLabel:
         monitor.log(f"\t{label.name} IoU: {final_class_iou[label.value]*100:.3f} %")
-    monitor.log()
+    monitor.log(f"")
     monitor.log(f"Mean inference time: {mean_inference_time * 1000:.3f} ms")
     monitor.log(f"Standard deviation of inference time: {std_inference_time * 1000:.3f} ms")
 
