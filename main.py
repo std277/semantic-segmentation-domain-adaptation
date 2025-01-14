@@ -146,15 +146,15 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--brightness_contrast_augmentation",
-        action="store_true",
-        help="Performs random brightness contrast data augmentation on dataset."
-    )
-
-    parser.add_argument(
         "--shift_scale_rotate_augmentation",
         action="store_true",
         help="Performs shift scale rotate data augmentation on dataset."
+    )
+
+    parser.add_argument(
+        "--brightness_contrast_augmentation",
+        action="store_true",
+        help="Performs random brightness contrast data augmentation on dataset."
     )
 
     parser.add_argument(
