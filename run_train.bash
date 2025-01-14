@@ -35,24 +35,14 @@
 python3 main.py \
     --train \
     --model_name PIDNet_S \
-    --version T \
-    --source_domain Rural \
+    --version 2 \
+    --source_domain Urban \
+    --horizontal_flip_augmentation \
+    --shift_scale_rotate_augmentation \
+    --brightness_contrast_augmentation \
+    --coarse_dropout_augmentation \
     --batch_size 6 \
     --criterion CrossEntropyLoss \
     --optimizer SGD \
     --scheduler PolynomialLR \
     --epochs 20
-
-
-# python3 main.py \
-#     --train \
-#     --resume \
-#     --resume_epoch 13 \
-#     --model_name PIDNet_S \
-#     --version 0 \
-#     --source_domain Rural \
-#     --batch_size 6 \
-#     --criterion CrossEntropyLoss \
-#     --optimizer SGD \
-#     --scheduler PolynomialLR \
-#     --epochs 20
