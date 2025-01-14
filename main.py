@@ -356,8 +356,18 @@ def log_training_setup(model, criterion, optimizer, scheduler, device, args, mon
 
 
     monitor.log(f"Dataset source domain: {args.source_domain}")
+    
+    data_augmentation = args.horizontal_flip_augmentation or args.shift_scale_rotate_augmentation or args.brightness_contrast_augmentation or args.coarse_dropout_augmentation
+    monitor.log(f"Data augmentation: {data_augmentation}")
+    if args.horizontal_flip_augmentation:
+        monitor.log(f"- HorizontalFlip(p=0.5)")
+    if args.shift_scale_rotate_augmentation:
+        monitor.log(f"- ShiftScaleRotate(shift_limit=0.1, scale_limit=0.2, rotate_limit=15, p=0.5)")
+    if args.brightness_contrast_augmentation:
+        monitor.log(f"- RandomBrightnessContrast(p=0.5)")
+    if args.coarse_dropout_augmentation:
+        monitor.log(f"- CoarseDropout(max_holes=8, max_height=32, max_width=32, p=0.5)")
 
-    monitor.log(f"Data augmentation: {args.data_augmentation}")
 
     monitor.log(f"Batch size: {args.batch_size}\n")
 
@@ -410,11 +420,11 @@ def dataset_preprocessing(domain, batch_size, data_augmentation, args):
         if args.horizontal_flip_augmentation:
             transform_list.append(HorizontalFlip(p=0.5))
         
-        if args.brightness_contrast_augmentation:
-            transform_list.append(RandomBrightnessContrast(p=0.5))
-        
         if args.shift_scale_rotate_augmentation:
             transform_list.append(ShiftScaleRotate(shift_limit=0.1, scale_limit=0.2, rotate_limit=15, p=0.5))
+        
+        if args.brightness_contrast_augmentation:
+            transform_list.append(RandomBrightnessContrast(p=0.5))
 
         if args.coarse_dropout_augmentation:
             transform_list.append(CoarseDropout(max_holes=8, max_height=32, max_width=32, p=0.5))
