@@ -23,7 +23,7 @@ from albumentations.pytorch import ToTensorV2
 
 from fvcore.nn import FlopCountAnalysis, flop_count_table
 
-from datasets import LoveDADataset, MEAN, STD, NUM_CLASSES
+from datasets import LoveDADataset, LoveDADatasetLabel, MEAN, STD, NUM_CLASSES
 from models import DeepLabV2_ResNet101, PIDNet_S, PIDNet_M, PIDNet_L
 from criteria import CrossEntropyLoss, OhemCrossEntropyLoss, BoundaryLoss
 from utils import *
@@ -546,7 +546,7 @@ def get_scheduler(optimizer, args):
 
 
 def compute_mIoU(predictions, masks, num_classes):
-    iou_per_class = torch.zeros(num_classes, dtype=torch.float32)
+    class_iou = torch.zeros(num_classes, dtype=torch.float32)
 
     predictions = predictions.view(-1)
     masks = masks.view(-1)
@@ -556,13 +556,13 @@ def compute_mIoU(predictions, masks, num_classes):
         union = torch.sum((predictions == cls) | (masks == cls))
 
         if union == 0:
-            iou_per_class[cls] = float('nan')
+            class_iou[cls] = float('nan')
         else:
-            iou_per_class[cls] = intersection / union
+            class_iou[cls] = intersection / union
 
-    mean_iou = torch.nanmean(iou_per_class).item()
+    mean_iou = torch.nanmean(class_iou).item()
 
-    return mean_iou
+    return mean_iou, class_iou
 
 
 
@@ -615,7 +615,7 @@ def train_deeplabv2(model, model_number, trainloader, valloader, criterion, opti
             cumulative_loss += loss.item()
             train_loss = cumulative_loss / count
 
-            mIoU = compute_mIoU(predictions, masks, NUM_CLASSES)
+            mIoU, _ = compute_mIoU(predictions, masks, NUM_CLASSES)
             cumulative_mIoU += mIoU
             train_mIoU = cumulative_mIoU / count
 
@@ -657,7 +657,7 @@ def train_deeplabv2(model, model_number, trainloader, valloader, criterion, opti
                 cumulative_loss += loss.item()
                 val_loss = cumulative_loss / count
 
-                mIoU = compute_mIoU(predictions, masks, NUM_CLASSES)
+                mIoU, _ = compute_mIoU(predictions, masks, NUM_CLASSES)
                 cumulative_mIoU += mIoU
                 val_mIoU = cumulative_mIoU / count
             
@@ -758,7 +758,7 @@ def train_pidnet(model, model_number, trainloader, valloader, criterion, bd_crit
             cumulative_loss += loss.item()
             train_loss = cumulative_loss / count
 
-            mIoU = compute_mIoU(predictions, masks, NUM_CLASSES)
+            mIoU, _ = compute_mIoU(predictions, masks, NUM_CLASSES)
             cumulative_mIoU += mIoU
             train_mIoU = cumulative_mIoU / count
 
@@ -813,7 +813,7 @@ def train_pidnet(model, model_number, trainloader, valloader, criterion, bd_crit
                 cumulative_loss += loss.item()
                 val_loss = cumulative_loss / count
 
-                mIoU = compute_mIoU(predictions, masks, NUM_CLASSES)
+                mIoU, _ = compute_mIoU(predictions, masks, NUM_CLASSES)
                 cumulative_mIoU += mIoU
                 val_mIoU = cumulative_mIoU / count
             
@@ -865,6 +865,9 @@ def test(model_name, model, valloader, device, monitor):
     test_mIoU = 0.0
     inference_times = []
 
+    cumulative_class_iou = torch.zeros(NUM_CLASSES, dtype=torch.float32)
+    class_count = torch.zeros(NUM_CLASSES, dtype=torch.int32)
+
     model.eval()
     with torch.no_grad():
         
@@ -902,7 +905,13 @@ def test(model_name, model, valloader, device, monitor):
             
             count += 1
 
-            mIoU = compute_mIoU(predictions, masks, NUM_CLASSES)
+            mIoU, class_iou = compute_mIoU(predictions, masks, NUM_CLASSES)
+
+            valid_class_mask = ~torch.isnan(class_iou)
+            cumulative_class_iou[valid_class_mask] += class_iou[valid_class_mask]
+            class_count[valid_class_mask] += 1
+
+            
             cumulative_mIoU += mIoU
             test_mIoU = cumulative_mIoU / count
             
@@ -918,9 +927,14 @@ def test(model_name, model, valloader, device, monitor):
 
     total_params = sum(p.numel() for p in model.parameters())
 
+    final_class_iou = cumulative_class_iou / class_count.clamp(min=1)
+
     monitor.log(f"Model parameters: {total_params}")
     monitor.log(f"FLOPs:\n{flops_count}\n")
     monitor.log(f"Mean Intersection over Union on test images: {test_mIoU*100:.3f} %")
+    for label in LoveDADatasetLabel:
+        monitor.log(f"\t{label.name} IoU: {final_class_iou[label.value]*100:.3f} %")
+    monitor.log()
     monitor.log(f"Mean inference time: {mean_inference_time * 1000:.3f} ms")
     monitor.log(f"Standard deviation of inference time: {std_inference_time * 1000:.3f} ms")
 
@@ -950,9 +964,13 @@ def predict(model_name, model, valloader, device):
 
             predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
             
-            mIoU = compute_mIoU(predictions, masks, NUM_CLASSES)
+            mIoU, iou_per_class = compute_mIoU(predictions, masks, NUM_CLASSES)
 
-            plot_prediction(images[0], masks[0], predictions[0], alpha=0.4, title="Prediction", description=f"mIoU: {mIoU*100:.3f} %")
+            iou_per_class_str = ""
+            for label in LoveDADatasetLabel:
+                iou_per_class_str += f"{label.name}: {iou_per_class[label.value]*100:.3f} %\n"            
+
+            plot_prediction(images[0], masks[0], predictions[0], alpha=0.4, title="Prediction", description=f"Mean Intersection over Union: {mIoU*100:.3f} %\n\n{iou_per_class_str}")
 
             
 

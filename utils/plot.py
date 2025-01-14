@@ -81,7 +81,7 @@ def plot_dataset_entry(image, mask, boundary, alpha=1., title=None, description=
 
 
 def plot_prediction(image, mask, prediction, alpha=1., title=None, description=None, show=True):
-    fig, axes = plt.subplots(1, 3, figsize=(17, 7))
+    fig, axes = plt.subplots(1, 3, figsize=(17, 8))
 
     axes = axes.flatten()
 
@@ -111,7 +111,7 @@ def plot_prediction(image, mask, prediction, alpha=1., title=None, description=N
     plt.legend(handles=patches, bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
 
     if description is not None:
-        fig.text(0.5, 0.1, description, ha='center', fontsize=12, wrap=True)
+        fig.text(0.5, 0.02, description, ha='center', fontsize=12, wrap=True)
 
     if show:
         plt.show()

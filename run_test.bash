@@ -40,7 +40,7 @@
 python3 main.py \
     --test \
     --model_name PIDNet_S \
-    --version T \
+    --version 1 \
     --model_file best_0.pt \
-    --target_domain Rural \
+    --target_domain Urban \
     --batch_size 6
