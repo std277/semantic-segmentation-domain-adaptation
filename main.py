@@ -925,12 +925,9 @@ def test(model_name, model, valloader, device, monitor):
     mean_inference_time = np.mean(inference_times)
     std_inference_time = np.std(inference_times)
 
-    total_params = sum(p.numel() for p in model.parameters())
-
     final_class_iou = cumulative_class_iou / class_count.clamp(min=1)
 
-    monitor.log(f"Model parameters: {total_params}")
-    monitor.log(f"FLOPs:\n{flops_count}\n")
+    monitor.log(f"Model parameters and FLOPs:\n{flops_count}\n")
     monitor.log(f"Mean Intersection over Union on test images: {test_mIoU*100:.3f} %")
     for label in LoveDADatasetLabel:
         monitor.log(f"\t{label.name} IoU: {final_class_iou[label.value]*100:.3f} %")
