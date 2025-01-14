@@ -59,8 +59,9 @@ Standard deviation of inference time: 3.142 ms
 
 
 
-
+Current steps:
+- PIDNet (2,3,4) training on colab
 
 Next steps:
-- Accuracy for each class
+- Accuracy for each class to compare with class balance
 - Fix OhemCrossEntropyLoss
