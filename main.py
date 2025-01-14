@@ -140,9 +140,27 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--data_augmentation",
+        "--horizontal_flip_augmentation",
         action="store_true",
-        help="Performs data augmentation on dataset."
+        help="Performs horizontal flip data augmentation on dataset."
+    )
+
+    parser.add_argument(
+        "--brightness_contrast_augmentation",
+        action="store_true",
+        help="Performs random brightness contrast data augmentation on dataset."
+    )
+
+    parser.add_argument(
+        "--shift_scale_rotate_augmentation",
+        action="store_true",
+        help="Performs shift scale rotate data augmentation on dataset."
+    )
+
+    parser.add_argument(
+        "--coarse_dropout_augmentation",
+        action="store_true",
+        help="Performs coarse dropout data augmentation on dataset."
     )
 
     parser.add_argument(
@@ -380,19 +398,31 @@ def log_testing_setup(device, args, monitor):
     monitor.log(f"Dataset target domain: {args.target_domain}\n")
 
 
-def dataset_preprocessing(domain, batch_size, data_augmentation, model_name):
-    # Define transforms
 
+def dataset_preprocessing(domain, batch_size, data_augmentation, args):
+    
+    # Define transforms
     if data_augmentation:
-        transform = Compose([
-            Resize(512, 512),
-            Normalize(mean=MEAN, std=STD),
-            HorizontalFlip(p=0.5),
-            RandomBrightnessContrast(p=0.2),
-            ShiftScaleRotate(shift_limit=0.1, scale_limit=0.2, rotate_limit=15, p=0.3),
-            CoarseDropout(max_holes=8, max_height=32, max_width=32, p=0.3),
-            ToTensorV2()
-        ])
+        transform_list = []
+        transform_list.append(Resize(512, 512))
+        transform_list.append(Normalize(mean=MEAN, std=STD))
+
+        if args.horizontal_flip_augmentation:
+            transform_list.append(HorizontalFlip(p=0.5))
+        
+        if args.brightness_contrast_augmentation:
+            transform_list.append(RandomBrightnessContrast(p=0.5))
+        
+        if args.shift_scale_rotate_augmentation:
+            transform_list.append(ShiftScaleRotate(shift_limit=0.1, scale_limit=0.2, rotate_limit=15, p=0.5))
+
+        if args.coarse_dropout_augmentation:
+            transform_list.append(CoarseDropout(max_holes=8, max_height=32, max_width=32, p=0.5))
+
+        transform_list.append(ToTensorV2())
+
+        transform = Compose(transform_list)
+
     else:
         transform = Compose([
             Resize(512, 512),
@@ -945,8 +975,8 @@ def main():
         trainloader, valloader, _ = dataset_preprocessing(
             domain=args.source_domain,
             batch_size=args.batch_size,
-            data_augmentation=args.data_augmentation,
-            model_name=args.model_name
+            data_augmentation=True,
+            args=args
         )
         
         # inspect_dataset(trainloader, valloader)
@@ -1013,7 +1043,7 @@ def main():
             domain=args.target_domain,
             batch_size=args.batch_size,
             data_augmentation=False,
-            model_name=args.model_name
+            args=args
         )
 
         model = get_model(args.model_name, device)
@@ -1037,7 +1067,7 @@ def main():
             domain=args.target_domain,
             batch_size=1,
             data_augmentation=False,
-            model_name=args.model_name
+            args=args
         )
 
         model = get_model(args.model_name, device)
