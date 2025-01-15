@@ -547,8 +547,8 @@ def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, 
     src_label = 0
     trg_label = 1
 
-    train_num_steps = max(len(src_trainloader), len(trg_trainloader))
-    val_num_steps = max(len(src_valloader), len(trg_valloader))
+    train_num_steps = min(len(src_trainloader), len(trg_trainloader))
+    val_num_steps = min(len(src_valloader), len(trg_valloader))
 
     train_seg_losses = []
     train_adv_losses = []
@@ -907,8 +907,8 @@ def train_single_level(model, model_D2, model_number, src_trainloader, trg_train
     src_label = 0
     trg_label = 1
 
-    train_num_steps = max(len(src_trainloader), len(trg_trainloader))
-    val_num_steps = max(len(src_valloader), len(trg_valloader))
+    train_num_steps = min(len(src_trainloader), len(trg_trainloader))
+    val_num_steps = min(len(src_valloader), len(trg_valloader))
 
     train_seg_losses = []
     train_adv_losses = []
