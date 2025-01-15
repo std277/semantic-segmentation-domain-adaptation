@@ -346,7 +346,7 @@ def get_device():
     return device
 
 
-def log_training_setup(model, criterion, optimizer, scheduler, device, args, monitor):
+def log_training_setup(device, args, monitor):
     monitor.log(f"Model: {args.model_name}")
 
     monitor.log(f"Device: {device}")
@@ -1020,7 +1020,7 @@ def main():
             for _ in range(args.resume_epoch-1):
                 scheduler.step()
 
-        log_training_setup(model, criterion, optimizer, scheduler, device, args, train_monitor)
+        log_training_setup(device, args, train_monitor)
 
         if args.model_name in ("DeepLabV2_ResNet101",):
             train_deeplabv2(

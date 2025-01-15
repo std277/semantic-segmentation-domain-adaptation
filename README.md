@@ -37,7 +37,7 @@ Resizing: (512, 512)
 | 1       | -                  | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 20         | 37.89            | 24.13            |
 | 2       | (HF, SSR)          | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 30         | 36.96            | 27.21            |
 | 3       | (BC, CD)           | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 30         | 35.36            | 23.13            |
-| 4       | (HF, SSR, BC, CD)  | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 30         |             |             |
+| 4       | (HF, SSR, BC)      | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 30         |             |             |
 
 Data augmentation:
 - HF: Horizontal Flip
@@ -56,11 +56,16 @@ Standard deviation of inference time: 3.142 ms
 (Latencies computed on google colab with Tesla T4 GPU)
 
 
-
-
-
 Current steps:
-- PIDNet v4 training on colab
+- PIDNet v4 train on colab
+- Think about a PIDNet v5 with other data augmentation
+- Train PIDNet single_level adversarial
+- Train PIDNet multi_level adversarial
+
 
 Next steps:
+- Write test and predict for adversarial
+
+Optional:
+- Retest PIDNET without augment arg for model
 - Fix OhemCrossEntropyLoss

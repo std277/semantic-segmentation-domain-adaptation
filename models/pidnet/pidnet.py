@@ -138,10 +138,11 @@ class PIDNet(nn.Module):
         x = self.conv1(x)
         x = self.layer1(x)
         x = self.relu(self.layer2(self.relu(x)))
+
         x_ = self.layer3_(x)
         x_d = self.layer3_d(x)
-        
         x = self.relu(self.layer3(x))
+
         x_ = self.pag3(x_, self.compression3(x))
         x_d = x_d + F.interpolate(
                         self.diff3(x),
@@ -153,8 +154,8 @@ class PIDNet(nn.Module):
         x = self.relu(self.layer4(x))
         x_ = self.layer4_(self.relu(x_))
         x_d = self.layer4_d(self.relu(x_d))
-        
         x_ = self.pag4(x_, self.compression4(x))
+        
         x_d = x_d + F.interpolate(
                         self.diff4(x),
                         size=[height_output, width_output],
