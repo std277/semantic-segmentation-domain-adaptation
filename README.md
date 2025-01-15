@@ -51,7 +51,7 @@ FLOPs: 37.902G
 
 Mean inference time: 5.090 ms
 
-Standard deviation of inference time: 3.142 ms
+Standard deviation of inference time: 3.142 msg
 
 (Latencies computed on google colab with Tesla T4 GPU)
 
