@@ -1223,6 +1223,114 @@ def train_single_level(model, model_D2, model_number, src_trainloader, trg_train
 
 
 
+def test(model_name, model, valloader, device, monitor):
+    monitor.start(desc=f"Testing", max_progress=len(valloader))
+
+    flops_count = 0
+    cumulative_mIoU = 0.0
+    count = 0
+    test_mIoU = 0.0
+    inference_times = []
+
+    cumulative_class_iou = torch.zeros(NUM_CLASSES, dtype=torch.float32)
+    class_count = torch.zeros(NUM_CLASSES, dtype=torch.int32)
+
+    model.eval()
+    with torch.no_grad():
+        
+        # FLOPs analysis
+        images, _, _ = next(iter(valloader))
+        images = images.to(device)
+        flops = FlopCountAnalysis(model, images)
+        flops_count = flop_count_table(flops)
+
+        # Testing
+        for i, (images, masks, _) in enumerate(valloader):
+            images, masks = images.to(device), masks.to(device)
+
+            start_time = time.perf_counter()
+            logits = model(images)
+            end_time = time.perf_counter()
+
+            h, w = masks.size(1), masks.size(2)
+            ph, pw = logits[0].size(2), logits[0].size(3)
+            if ph != h or pw != w:
+                for j in range(len(logits)):
+                    logits[j] = F.interpolate(logits[j], size=(h, w), mode='bilinear', align_corners=False)
+
+
+            batch_inference_time = (end_time - start_time) / images.size(0)
+            inference_times.append(batch_inference_time)
+
+            predictions = torch.argmax(torch.softmax(logits[-2], dim=1), dim=1)
+            
+            count += 1
+
+            mIoU, class_iou = compute_mIoU(predictions, masks, NUM_CLASSES)
+
+            valid_class_mask = ~torch.isnan(class_iou)
+            cumulative_class_iou[valid_class_mask] += class_iou[valid_class_mask]
+            class_count[valid_class_mask] += 1
+
+            
+            cumulative_mIoU += mIoU
+            test_mIoU = cumulative_mIoU / count
+            
+            monitor.update(
+                i + 1,
+                test_mIoU=f"{test_mIoU:.4f}",
+            )
+
+    monitor.stop()
+
+    mean_inference_time = np.mean(inference_times)
+    std_inference_time = np.std(inference_times)
+
+    final_class_iou = cumulative_class_iou / class_count.clamp(min=1)
+
+    monitor.log(f"Model parameters and FLOPs:\n{flops_count}\n")
+    monitor.log(f"Mean Intersection over Union on test images: {test_mIoU*100:.3f} %")
+    for label in LoveDADatasetLabel:
+        monitor.log(f"\t{label.name} IoU: {final_class_iou[label.value]*100:.3f} %")
+    monitor.log(f"")
+    monitor.log(f"Mean inference time: {mean_inference_time * 1000:.3f} ms")
+    monitor.log(f"Standard deviation of inference time: {std_inference_time * 1000:.3f} ms")
+
+
+
+
+
+
+
+def predict(model_name, model, valloader, device):
+    model.eval()
+    with torch.no_grad():
+
+        # Predicting
+        for i, (images, masks, _) in enumerate(valloader):
+            images, masks = images.to(device), masks.to(device)
+
+            logits = model(images)
+            h, w = masks.size(1), masks.size(2)
+            ph, pw = logits[0].size(2), logits[0].size(3)
+            if ph != h or pw != w:
+                for j in range(len(logits)):
+                    logits[j] = F.interpolate(logits[j], size=(h, w), mode='bilinear', align_corners=False)
+
+            predictions = torch.argmax(torch.softmax(logits[-2], dim=1), dim=1)
+            
+            mIoU, iou_per_class = compute_mIoU(predictions, masks, NUM_CLASSES)
+
+            iou_per_class_str = ""
+            for label in LoveDADatasetLabel:
+                iou_per_class_str += f"{label.name}: {iou_per_class[label.value]*100:.3f} %\n"            
+
+            plot_prediction(images[0], masks[0], predictions[0], alpha=0.4, title="Prediction", description=f"Mean Intersection over Union: {mIoU*100:.3f} %\n\n{iou_per_class_str}")
+
+
+
+
+
 
 
 
@@ -1331,6 +1439,55 @@ def main():
                 monitor=train_monitor,
                 res_dir=res_dir
             )
+    
+
+    if args.test:
+        res_dir = get_results_dir(args.store, args.model_name, args.version)
+
+        file_name = f"{res_dir}/testing_log.txt"
+        resume = os.path.exists(file_name)
+        test_monitor = Monitor(file_name, resume, inline=False)
+
+        trainloader, valloader, _ = dataset_preprocessing(
+            domain=args.target_domain,
+            batch_size=args.batch_size,
+            data_augmentation=False,
+            args=args
+        )
+
+        model, _, _ = get_model(args.model_name, device)
+        model = load_model(model, f"{res_dir}/weights/{args.model_file}", device)
+
+        log_testing_setup(device, args, test_monitor)
+
+        test(
+            model_name=args.model_name,
+            model=model,
+            valloader=valloader,
+            device=device,
+            monitor=test_monitor
+        )
+
+    
+    if args.predict:
+        res_dir = get_results_dir(args.store, args.model_name, args.version)
+
+        trainloader, valloader, _ = dataset_preprocessing(
+            domain=args.target_domain,
+            batch_size=1,
+            data_augmentation=False,
+            args=args
+        )
+
+        model, _, _ = get_model(args.model_name, device)
+        model = load_model(model, f"{res_dir}/weights/{args.model_file}", device)
+
+        predict(
+            model_name=args.model_name,
+            model=model,
+            valloader=valloader,
+            device=device
+        )
 
 
 
