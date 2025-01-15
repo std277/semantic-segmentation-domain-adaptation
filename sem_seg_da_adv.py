@@ -736,8 +736,8 @@ def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, 
         val_mIoU = 0.0
 
         model.eval()
-        model_D1.train()
-        model_D2.train()
+        model_D1.eval()
+        model_D2.eval()
 
         src_train_iter = iter(src_valloader)
         trg_train_iter = iter(trg_valloader)
@@ -1078,7 +1078,7 @@ def train_single_level(model, model_D2, model_number, src_trainloader, trg_train
         val_mIoU = 0.0
 
         model.eval()
-        model_D2.train()
+        model_D2.eval()
 
         src_train_iter = iter(src_valloader)
         trg_train_iter = iter(trg_valloader)

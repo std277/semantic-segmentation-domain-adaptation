@@ -44,7 +44,7 @@ python3 sem_seg_da_adv.py \
     --version 0 \
     --horizontal_flip_augmentation \
     --shift_scale_rotate_augmentation \
-    --brightness_contrast_augmentation \
+    --grid_distortion_augmentation \
     --batch_size 6 \
     --epochs 30
 
