@@ -879,7 +879,8 @@ def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, 
 
         plot_seg_loss_da_adv(train_seg_losses, val_seg_losses)
         plot_adv_loss_da_adv(train_adv_losses, val_adv_losses)
-        plot_D_loss_da_adv(train_D_losses, val_D_losses)        plot_mIoU(train_mIoUs, val_mIoUs, model_number, res_dir)
+        plot_D_loss_da_adv(train_D_losses, val_D_losses)
+        plot_mIoU(train_mIoUs, val_mIoUs, model_number, res_dir)
         plot_learning_rate(learning_rates, model_number, res_dir)
 
 
