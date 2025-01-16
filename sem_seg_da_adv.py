@@ -682,7 +682,7 @@ def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, 
 
 
 
-            loss = loss_seg + loss_adv2 + loss_D_src + loss_D_trg
+            loss = loss_seg + loss_adv + loss_D_src + loss_D_trg
             loss.backward()
 
 
