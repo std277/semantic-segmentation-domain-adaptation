@@ -664,7 +664,7 @@ def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, 
             D2_out = model_D2(F.softmax(src_logits[-2], dim=1))
             loss_D1_src = bce_criterion(D1_out, torch.full_like(D1_out, src_label, device=device))
             loss_D2_src = bce_criterion(D2_out, torch.full_like(D2_out, src_label, device=device))
-            loss_D_src = loss_D1_src + loss_D2_src
+            loss_D_src = (loss_D1_src + loss_D2_src) / 2
             # loss_D_src.backward(retain_graph=True)
 
             cumulative_D_loss += loss_D1_src.item() + loss_D2_src.item()
@@ -675,7 +675,7 @@ def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, 
             D2_out = model_D2(F.softmax(trg_logits[-2], dim=1))
             loss_D1_trg = bce_criterion(D1_out, torch.full_like(D1_out, trg_label, device=device))
             loss_D2_trg = bce_criterion(D2_out, torch.full_like(D2_out, trg_label, device=device))
-            loss_D_trg = loss_D1_trg + loss_D2_trg
+            loss_D_trg = (loss_D1_trg + loss_D2_trg) / 2
             # loss_D_trg.backward(retain_graph=True)
 
             cumulative_D_loss += loss_D1_trg.item() + loss_D2_trg.item()
@@ -802,7 +802,8 @@ def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, 
                 D2_out = model_D2(F.softmax(src_logits[-2], dim=1))
                 loss_D1_src = bce_criterion(D1_out, torch.full_like(D1_out, src_label, device=device))
                 loss_D2_src = bce_criterion(D2_out, torch.full_like(D2_out, src_label, device=device))
-                cumulative_D_loss += loss_D1_src.item() + loss_D2_src.item()
+                loss_D_src = (loss_D1_src + loss_D2_src) / 2
+                cumulative_D_loss += loss_D_src.item()
 
 
                 ## Validation with Target
@@ -810,7 +811,8 @@ def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, 
                 D2_out = model_D2(F.softmax(trg_logits[-2], dim=1))
                 loss_D1_trg = bce_criterion(D1_out, torch.full_like(D1_out, trg_label, device=device))
                 loss_D2_trg = bce_criterion(D2_out, torch.full_like(D2_out, trg_label, device=device))
-                cumulative_D_loss += loss_D1_trg.item() + loss_D2_trg.item()
+                loss_D_trg = (loss_D1_trg + loss_D2_trg) / 2
+                cumulative_D_loss += loss_D_trg.item()
 
                 
                     
@@ -870,9 +872,9 @@ def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, 
         save_model(model_D1, f"{res_dir}/weights/last_D1_{model_number}.pt")
         save_model(model_D2, f"{res_dir}/weights/last_D2_{model_number}.pt")
 
-        plot_seg_loss_da_adv(train_seg_losses, val_seg_losses)
-        plot_adv_loss_da_adv(train_adv_losses, val_adv_losses)
-        plot_D_loss_da_adv(train_D_losses, val_D_losses)
+        plot_seg_loss_da_adv(train_seg_losses, val_seg_losses, model_number, res_dir)
+        plot_adv_loss_da_adv(train_adv_losses, val_adv_losses, model_number, res_dir)
+        plot_D_loss_da_adv(train_D_losses, val_D_losses, model_number, res_dir)
         plot_mIoU(train_mIoUs, val_mIoUs, model_number, res_dir)
         plot_learning_rate(learning_rates, model_number, res_dir)
 
@@ -1008,6 +1010,7 @@ def train_single_level(model, model_D2, model_number, src_trainloader, trg_train
             ## Training with Source
             D2_out = model_D2(F.softmax(src_logits[-2], dim=1))
             loss_D2_src = bce_criterion(D2_out, torch.full_like(D2_out, src_label, device=device))
+            loss_D2_src = loss_D2_src / 2
             # loss_D2_src.backward(retain_graph=True)
 
             cumulative_D2_loss += loss_D2_src.item()
@@ -1016,6 +1019,7 @@ def train_single_level(model, model_D2, model_number, src_trainloader, trg_train
             ## Training with Target
             D2_out = model_D2(F.softmax(trg_logits[-2], dim=1))
             loss_D2_trg = bce_criterion(D2_out, torch.full_like(D2_out, trg_label, device=device))
+            loss_D2_trg = loss_D2_trg / 2
             # loss_D2_trg.backward()
 
             cumulative_D2_loss += loss_D2_trg.item()
@@ -1142,14 +1146,14 @@ def train_single_level(model, model_D2, model_number, src_trainloader, trg_train
                 ## Validation with Source
                 D2_out = model_D2(F.softmax(src_logits[-2], dim=1))
                 loss_D2_src = bce_criterion(D2_out, torch.full_like(D2_out, src_label, device=device))
-
+                loss_D2_src = loss_D2_src / 2
                 cumulative_D2_loss += loss_D2_src.item()
 
 
                 ## Validation with Target
                 D2_out = model_D2(F.softmax(trg_logits[-2], dim=1))
                 loss_D2_trg = bce_criterion(D2_out, torch.full_like(D2_out, trg_label, device=device))
-
+                loss_D2_trg = loss_D2_trg / 2
                 cumulative_D2_loss += loss_D2_trg.item()
 
                 
@@ -1205,9 +1209,9 @@ def train_single_level(model, model_D2, model_number, src_trainloader, trg_train
         save_model(model, f"{res_dir}/weights/last_{model_number}.pt")
         save_model(model_D2, f"{res_dir}/weights/last_D2_{model_number}.pt")
 
-        plot_seg_loss_da_adv(train_seg_losses, val_seg_losses)
-        plot_adv_loss_da_adv(train_adv_losses, val_adv_losses)
-        plot_D_loss_da_adv(train_D_losses, val_D_losses)
+        plot_seg_loss_da_adv(train_seg_losses, val_seg_losses, model_number, res_dir)
+        plot_adv_loss_da_adv(train_adv_losses, val_adv_losses, model_number, res_dir)
+        plot_D_loss_da_adv(train_D_losses, val_D_losses, model_number, res_dir)
         plot_mIoU(train_mIoUs, val_mIoUs, model_number, res_dir)
         plot_learning_rate(learning_rates, model_number, res_dir)
 
