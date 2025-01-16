@@ -59,7 +59,8 @@ Standard deviation of inference time: 3.142 msg
 
 
 Current steps:
-- PIDNet v5 train on colab
+- /2 on D losses?
+- Order of forward steps? 
 - Train PIDNet single_level adversarial
 - Train PIDNet multi_level adversarial
 

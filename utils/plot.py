@@ -208,7 +208,7 @@ def plot_learning_rate(learning_rates, model_number, res_dir):
 
 
 
-def plot_loss_da_adv(train_seg_losses, val_seg_losses, train_adv_losses, val_adv_losses, train_D_losses, val_D_losses, model_number, res_dir):
+def plot_seg_loss_da_adv(train_seg_losses, val_seg_losses, model_number, res_dir):
     fig = plt.figure()
     plt.title("Loss")
     plt.ylabel("Loss")
@@ -216,13 +216,34 @@ def plot_loss_da_adv(train_seg_losses, val_seg_losses, train_adv_losses, val_adv
 
     plt.plot(train_seg_losses, label="Train Seg Loss")
     plt.plot(val_seg_losses, label="Val Seg Loss")
+    
+    plt.legend()
+    plt.savefig(f"{res_dir}/plots/loss_seg_{model_number}.pdf")
+    plt.close(fig)
+
+
+def plot_adv_loss_da_adv(train_adv_losses, val_adv_losses, model_number, res_dir):
+    fig = plt.figure()
+    plt.title("Loss")
+    plt.ylabel("Loss")
+    plt.xlabel("Epoch")
 
     plt.plot(train_adv_losses, label="Train Adv Loss")
     plt.plot(val_adv_losses, label="Val Adv Loss")
+    
+    plt.legend()
+    plt.savefig(f"{res_dir}/plots/loss_adv_{model_number}.pdf")
+    plt.close(fig)
+
+def plot_D_loss_da_adv(train_D_losses, val_D_losses, model_number, res_dir):
+    fig = plt.figure()
+    plt.title("Loss")
+    plt.ylabel("Loss")
+    plt.xlabel("Epoch")
 
     plt.plot(train_D_losses, label="Train D Loss")
     plt.plot(val_D_losses, label="Val D Loss")
     
     plt.legend()
-    plt.savefig(f"{res_dir}/plots/loss_{model_number}.pdf")
+    plt.savefig(f"{res_dir}/plots/loss_D_{model_number}.pdf")
     plt.close(fig)
