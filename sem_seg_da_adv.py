@@ -877,8 +877,9 @@ def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, 
         save_model(model_D1, f"{res_dir}/weights/last_D1_{model_number}.pt")
         save_model(model_D2, f"{res_dir}/weights/last_D2_{model_number}.pt")
 
-        plot_loss_da_adv(train_seg_losses, val_seg_losses, train_adv_losses, val_adv_losses, train_D_losses, val_D_losses, model_number, res_dir)
-        plot_mIoU(train_mIoUs, val_mIoUs, model_number, res_dir)
+        plot_seg_loss_da_adv(train_seg_losses, val_seg_losses)
+        plot_adv_loss_da_adv(train_adv_losses, val_adv_losses)
+        plot_D_loss_da_adv(train_D_losses, val_D_losses)        plot_mIoU(train_mIoUs, val_mIoUs, model_number, res_dir)
         plot_learning_rate(learning_rates, model_number, res_dir)
 
 
@@ -997,7 +998,13 @@ def train_single_level(model, model_D2, model_number, src_trainloader, trg_train
 
             ## Training with Target
             D2_out = model_D2(F.softmax(trg_logits[-2], dim=1))
+            print(D2_out.shape)
+            print(D2_out[0])
+
             loss_adv2 = bce_criterion(D2_out, torch.full_like(D2_out, src_label, device=device))
+            
+            print(loss_adv2)
+            exit()
             lambda_adv2 = 0.001
             loss_adv2 = loss_adv2 * lambda_adv2
             loss_adv2.backward(retain_graph=True)

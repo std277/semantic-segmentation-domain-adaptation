@@ -37,24 +37,24 @@
 
 
 # Train PIDNet_S_Adversarial
-python3 sem_seg.py \
-    --train \
-    --model_name PIDNet_S \
-    --version T \
-    --batch_size 6 \
-    --epochs 30
-
-# Train PIDNet_S_Adversarial
-# python3 sem_seg_da_adv.py \
+# python3 sem_seg.py \
 #     --train \
-#     --mode single_level \
 #     --model_name PIDNet_S \
-#     --version 0 \
-#     --horizontal_flip_augmentation \
-#     --shift_scale_rotate_augmentation \
-#     --grid_distortion_augmentation \
+#     --version T \
 #     --batch_size 6 \
 #     --epochs 30
+
+# Train PIDNet_S_Adversarial
+python3 sem_seg_da_adv.py \
+    --train \
+    --mode single_level \
+    --model_name PIDNet_S \
+    --version T \
+    --horizontal_flip_augmentation \
+    --shift_scale_rotate_augmentation \
+    --grid_distortion_augmentation \
+    --batch_size 6 \
+    --epochs 30
 
 # python3 sem_seg_da_adv.py \
 #     --train \
