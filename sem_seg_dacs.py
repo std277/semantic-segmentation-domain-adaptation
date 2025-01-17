@@ -417,7 +417,7 @@ def save_model(model, file_name):
 
 
 def load_model(model, file_name, device):
-    model.load_state_dict(torch.load(file_name, map_location=torch.device(device), weights_only=True))
+    model.load_state_dict(torch.load(file_name, map_location=torch.device(device)))
     return model
 
 
@@ -629,7 +629,7 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
             loss = loss_labeled + loss_unlabeled
             loss.backward()
 
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
 
 
@@ -697,7 +697,6 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
                 src_images, src_masks, src_boundaries = next(src_val_iter)
                 src_images, src_masks, src_boundaries = src_images.to(device), src_masks.to(device), src_boundaries.to(device)
 
-            
                 src_logits = model(src_images)
 
                 h, w = src_masks.size(1), src_masks.size(2)

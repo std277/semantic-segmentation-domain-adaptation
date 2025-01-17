@@ -69,6 +69,7 @@ Resizing: (512, 512)
 |---------|--------------------|------------|------------|----------------------|---------------------------------------------------|----------------------------------|------------|------------------|------------------|
 | 0       | -                  | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 30         | 33.31            | 18.67            |
 | 1       | (HF, SSR, GD)      | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 30         | 30.96            | 18.56            |
+| 2       | -                  | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 45         | 34.72            | 17.37            |
 
 Data augmentation:
 - HF: Horizontal Flip
