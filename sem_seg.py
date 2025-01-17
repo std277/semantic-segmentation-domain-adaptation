@@ -696,10 +696,36 @@ def train_deeplabv2(model, model_number, trainloader, valloader, criterion, opti
 
         save_model(model, f"{res_dir}/weights/last_{model_number}.pt")
 
-        plot_loss(train_losses, val_losses, model_number, res_dir)
-        plot_mIoU(train_mIoUs, val_mIoUs, model_number, res_dir)
-        plot_learning_rate(learning_rates, model_number, res_dir)
 
+        plot_metrics(
+            values_list=[train_losses, val_losses],
+            labels=["Train Loss", "Val Loss"],
+            title="Loss",
+            xlabel="Epoch",
+            ylabel="Loss",
+            res_dir=res_dir,
+            file_name=f"loss_{model_number}"
+        )
+        
+        plot_metrics(
+            values_list=[train_mIoUs, val_mIoUs],
+            labels=["Train mIoU", "Val mIoU"],
+            title="Mean Intersection over Union",
+            xlabel="Epoch",
+            ylabel="mIoU",
+            res_dir=res_dir,
+            file_name=f"mIoU_{model_number}"
+        )
+
+        plot_metrics(
+            values_list=[learning_rates],
+            labels=["Learning rate"],
+            title="Learning rate",
+            xlabel="Epoch",
+            ylabel="lr",
+            res_dir=res_dir,
+            file_name=f"learning_rate_{model_number}"
+        )
 
     monitor.print_stats()
 
@@ -852,9 +878,35 @@ def train_pidnet(model, model_number, trainloader, valloader, criterion, bd_crit
 
         save_model(model, f"{res_dir}/weights/last_{model_number}.pt")
 
-        plot_loss(train_losses, val_losses, model_number, res_dir)
-        plot_mIoU(train_mIoUs, val_mIoUs, model_number, res_dir)
-        plot_learning_rate(learning_rates, model_number, res_dir)
+        plot_metrics(
+            values_list=[train_losses, val_losses],
+            labels=["Train Loss", "Val Loss"],
+            title="Loss",
+            xlabel="Epoch",
+            ylabel="Loss",
+            res_dir=res_dir,
+            file_name=f"loss_{model_number}"
+        )
+        
+        plot_metrics(
+            values_list=[train_mIoUs, val_mIoUs],
+            labels=["Train mIoU", "Val mIoU"],
+            title="Mean Intersection over Union",
+            xlabel="Epoch",
+            ylabel="mIoU",
+            res_dir=res_dir,
+            file_name=f"mIoU_{model_number}"
+        )
+
+        plot_metrics(
+            values_list=[learning_rates],
+            labels=["Learning rate"],
+            title="Learning rate",
+            xlabel="Epoch",
+            ylabel="lr",
+            res_dir=res_dir,
+            file_name=f"learning_rate_{model_number}"
+        )
 
 
     monitor.print_stats()

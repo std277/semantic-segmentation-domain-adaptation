@@ -24,7 +24,7 @@ from albumentations.pytorch import ToTensorV2
 
 from fvcore.nn import FlopCountAnalysis, flop_count_table
 
-from datasets import LoveDADataset, LoveDADatasetLabel, MEAN, STD, NUM_CLASSES
+from datasets import LoveDADataset, LoveDADatasetLabel, MEAN, STD, NUM_CLASSES, compute_boundaries
 from models import PIDNet_S, PIDNet_M, PIDNet_L, FCDiscriminator
 from criteria import CrossEntropyLoss, OhemCrossEntropyLoss, BoundaryLoss
 from utils import *
@@ -34,11 +34,6 @@ from utils import *
 
 def parse_args():
     parser = argparse.ArgumentParser(description="CIFAR10 Classification")
-
-    mode_choices = [
-        "single_level",
-        "multi_level"
-    ]
 
     domains_choices = [
         "Rural",
@@ -62,14 +57,6 @@ def parse_args():
         "--train",
         action="store_true",
         help="Enable training mode."
-    )
-
-    parser.add_argument(
-        "--mode",
-        type=str,
-        choices=mode_choices,
-        default="single_level",
-        help=f"Specify the number of adversarial network.",
     )
 
     parser.add_argument(
@@ -172,13 +159,6 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--lr_D",
-        type=float,
-        default=0.01,
-        help=f"Specify the initial learning rate for discriminator.",
-    )
-
-    parser.add_argument(
         "--momentum",
         type=float,
         default=0.9,
@@ -248,7 +228,7 @@ def make_results_dir(store, model_name, version, resume):
 
     os.makedirs(res_dir, exist_ok=True)
 
-    dir_name = f"{model_name}_Adversarial_{version}"
+    dir_name = f"{model_name}_DACS_{version}"
     if not resume:
         for file in os.listdir(res_dir):
             if file == dir_name:
@@ -268,7 +248,7 @@ def get_results_dir(store, model_name, version):
     else:
         res_dir = "res"
 
-    dir_name = f"{model_name}_Adversarial_{version}"
+    dir_name = f"{model_name}__DACS_{version}"
     res_dir = f"{res_dir}/{dir_name}"
 
     return res_dir
@@ -326,8 +306,7 @@ def get_device():
 
 
 def log_training_setup(device, args, monitor):
-    monitor.log(f"Model: {args.model_name} Adversarial Discriminator")
-    monitor.log(f"Mode: {args.mode}\n")
+    monitor.log(f"Model: {args.model_name} DACS")
 
     monitor.log(f"Device: {device}")
     if torch.cuda.is_available():
@@ -408,24 +387,29 @@ def dataset_preprocessing(domain, batch_size, data_augmentation, args):
 def get_model(args, device):
     if args.model_name == "PIDNet_S":
         model = PIDNet_S(num_classes=NUM_CLASSES, pretrain=True, pretrain_model_path="./weights_pretrained/pidnet_s_pretrained_imagenet.pth")
+        ema_model = PIDNet_S(num_classes=NUM_CLASSES, pretrain=False)
     elif args.model_name == "PIDNet_M":
         model = PIDNet_M(num_classes=NUM_CLASSES, pretrain=True, pretrain_model_path="./weights_pretrained/pidnet_m_pretrained_imagenet.pth")
+        ema_model = PIDNet_M(num_classes=NUM_CLASSES, pretrain=False)
     elif args.model_name == "PIDNet_L":
         model = PIDNet_L(num_classes=NUM_CLASSES, pretrain=True, pretrain_model_path="./weights_pretrained/pidnet_l_pretrained_imagenet.pth")
+        ema_model = PIDNet_L(num_classes=NUM_CLASSES, pretrain=False)
     else:
         raise Exception(f"Model {args.model_name} doesn't exist")
-    model = model.to(device)
-
-    model_D2 = FCDiscriminator(num_classes=NUM_CLASSES)
-    model_D2 = model_D2.to(device)
-
-    if args.mode == "multi_level":
-        model_D1 = FCDiscriminator(num_classes=NUM_CLASSES)
-        model_D1 = model_D1.to(device)
-
-        return model, model_D1, model_D2
     
-    return model, None, model_D2
+    for param in ema_model.parameters():
+        param.detach_()
+        
+    mp = list(model.parameters())
+    mcp = list(ema_model.parameters())
+    n = len(mp)
+    for i in range(0, n):
+        mcp[i].data[:] = mp[i].data[:].clone()
+
+    model = model.to(device)
+    ema_model = ema_model.to(device)
+    
+    return model, ema_model
 
 
 def save_model(model, file_name):
@@ -440,38 +424,23 @@ def load_model(model, file_name, device):
 def get_criterion():
     criterion = CrossEntropyLoss(ignore_label=255)
     bd_criterion = BoundaryLoss()
-    bce_criterion = BCEWithLogitsLoss()
 
-    return criterion, bd_criterion, bce_criterion
-
+    return criterion, bd_criterion
 
 
-def get_optimizer(model, model_D1, model_D2, args):
+
+def get_optimizer(model, args):
     optimizer = SGD(
         model.parameters(),
         lr=args.lr,
         momentum=args.momentum,
         weight_decay=args.weight_decay,
     )
-
-    optimizer_D2 = Adam(
-        model_D2.parameters(),
-        lr=args.lr_D,
-        betas=(0.9, 0.99)
-    )
-
-    if args.mode == "multi_level":
-        optimizer_D1 = Adam(
-            model_D1.parameters(),
-            lr=args.lr_D,
-            betas=(0.9, 0.99)
-        )
-        return optimizer, optimizer_D1, optimizer_D2 
     
-    return optimizer, None, optimizer_D2 
+    return optimizer 
 
 
-def get_scheduler(optimizer, optimizer_D1, optimizer_D2, args):
+def get_scheduler(optimizer, args):
     max_iters = args.epochs
     power = args.power
 
@@ -482,20 +451,8 @@ def get_scheduler(optimizer, optimizer_D1, optimizer_D2, args):
         optimizer,
         lr_lambda=polynomial_lr
     )
-
-    scheduler_D2 = LambdaLR(
-        optimizer_D2,
-        lr_lambda=polynomial_lr
-    )
-
-    if args.mode == "multi_level":
-        scheduler_D1 = LambdaLR(
-            optimizer_D1,
-            lr_lambda=polynomial_lr
-        )
-        return scheduler, scheduler_D1, scheduler_D2
     
-    return scheduler, None, scheduler_D2
+    return scheduler
 
 
 def compute_mIoU(predictions, masks, num_classes):
@@ -524,36 +481,16 @@ def compute_mIoU(predictions, masks, num_classes):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, trg_trainloader, src_valloader, trg_valloader, criterion, bd_criterion, bce_criterion, \
-           optimizer, optimizer_D1, optimizer_D2, scheduler, scheduler_D1, scheduler_D2, epochs, init_epoch, patience, device, monitor, res_dir):
+def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_valloader, trg_valloader, criterion, bd_criterion, \
+           optimizer, scheduler, epochs, init_epoch, patience, device, monitor, res_dir):
     
     cudnn.benchmark = True
-
-    src_label = 0
-    trg_label = 1
 
     train_num_steps = min(len(src_trainloader), len(trg_trainloader))
     val_num_steps = min(len(src_valloader), len(trg_valloader))
 
-    train_seg_losses = []
-    train_adv_losses = []
-    train_D_losses = []
-
+    train_losses_labeled = []
+    train_losses_unlabeled = []
     val_losses = []
 
     train_mIoUs = []
@@ -571,18 +508,14 @@ def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, 
         learning_rate = scheduler.get_last_lr()[0]
         learning_rates.append(learning_rate)
 
-        cumulative_seg_loss = 0.0
-        cumulative_adv_loss = 0.0
-        cumulative_D_loss = 0.0
-
+        cumulative_loss_labeled = 0.0
+        cumulative_loss_unlabeled = 0.0
         cumulative_mIoU = 0.0
         count = 0
         train_mIoU = 0.0
 
-
         model.train()
-        model_D1.train()
-        model_D2.train()
+        ema_model.train()
 
         src_train_iter = iter(src_trainloader)
         trg_train_iter = iter(trg_trainloader)
@@ -593,12 +526,12 @@ def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, 
             trg_images, _, _ = next(trg_train_iter)
             trg_images = trg_images.to(device)
 
-
             optimizer.zero_grad()
-            optimizer_D1.zero_grad()
-            optimizer_D2.zero_grad()
 
 
+
+            # Train Segmentation Network with Labeled data
+            
             src_logits = model(src_images)
 
             h, w = src_masks.size(1), src_masks.size(2)
@@ -607,24 +540,7 @@ def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, 
                 for j in range(len(src_logits)):
                     src_logits[j] = F.interpolate(src_logits[j], size=(h, w), mode='bilinear', align_corners=False)
 
-            trg_logits = model(trg_images)
 
-            h, w = src_masks.size(1), src_masks.size(2)
-            ph, pw = trg_logits[0].size(2), trg_logits[0].size(3)
-            if ph != h or pw != w:
-                for j in range(len(trg_logits)):
-                    trg_logits[j] = F.interpolate(trg_logits[j], size=(h, w), mode='bilinear', align_corners=False)
-
-
-
-
-            # Train Segmentation Network
-            for param in model_D1.parameters():
-                param.requires_grad = False
-            for param in model_D2.parameters():
-                param.requires_grad = False
-
-            ## Training with Source
             loss_s = criterion(src_logits[:-1], src_masks, balance_weights=[0.4, 1.0])
             loss_b = bd_criterion(src_logits[-1], src_boundaries)
 
@@ -632,71 +548,103 @@ def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, 
             bd_label = torch.where(F.sigmoid(src_logits[-1][:,0,:,:])>0.8, src_masks, filler)
             loss_sb = criterion(src_logits[-2], bd_label)
             
-            loss_seg = loss_s + loss_b + loss_sb
-            # loss_seg.backward(retain_graph=True)
+            loss_labeled = loss_s + loss_b + loss_sb
 
-            cumulative_seg_loss += loss_seg.item()
-
-            ## Training with Target
-            D1_out = model_D1(F.softmax(trg_logits[-3], dim=1))
-            D2_out = model_D2(F.softmax(trg_logits[-2], dim=1))
-            loss_adv1 = bce_criterion(D1_out, torch.full_like(D1_out, src_label, device=device))
-            loss_adv2 = bce_criterion(D2_out, torch.full_like(D2_out, src_label, device=device))
-            lambda_adv1 = 0.0002
-            lambda_adv2 = 0.001
-            loss_adv = loss_adv1 * lambda_adv1 + loss_adv2 * lambda_adv2
-            # loss_adv.backward(retain_graph=True)
-
-            cumulative_adv_loss += loss_adv.item()
+            cumulative_loss_labeled += loss_labeled.item()
 
 
 
-            # Train Discriminant Network
-            for param in model_D1.parameters():
-                param.requires_grad = True
-            for param in model_D2.parameters():
-                param.requires_grad = True
+            # Train Segmentation Network with Unlabeled data
 
-            ## Training with Source
-            D1_out = model_D1(F.softmax(src_logits[-3], dim=1))
-            D2_out = model_D2(F.softmax(src_logits[-2], dim=1))
-            loss_D1_src = bce_criterion(D1_out, torch.full_like(D1_out, src_label, device=device))
-            loss_D2_src = bce_criterion(D2_out, torch.full_like(D2_out, src_label, device=device))
-            loss_D_src = (loss_D1_src + loss_D2_src) / 2
-            # loss_D_src.backward(retain_graph=True)
+            trg_logits = ema_model(trg_images)
 
-            cumulative_D_loss += loss_D1_src.item() + loss_D2_src.item()
+            h, w = src_masks.size(1), src_masks.size(2)
+            ph, pw = trg_logits[0].size(2), trg_logits[0].size(3)
+            if ph != h or pw != w:
+                for j in range(len(trg_logits)):
+                    trg_logits[j] = F.interpolate(trg_logits[j], size=(h, w), mode='bilinear', align_corners=False)
+
+            trg_max_probs, trg_prediction = torch.max(torch.softmax(trg_logits[-2], dim=1), dim=1)
+
+            mixed_images = []
+            mixed_masks = []
+            for j in range(src_images.shape[0]):
+                classes = torch.unique(src_masks[j])
+                n_classes = classes.shape[0]
+                classes = (classes[torch.Tensor(np.random.choice(n_classes, int((n_classes + n_classes%2)/2),replace=False)).long()]).to(device)
+                mix_mask = generate_class_mask(src_masks[j], classes).unsqueeze(0).to(device)
+                
+                image, mask = oneMix(
+                    mask=mix_mask,
+                    data=torch.cat((src_images[j].unsqueeze(0), trg_images[j].unsqueeze(0))),
+                    target=torch.cat((src_masks[j].unsqueeze(0),trg_prediction[j].unsqueeze(0)))
+                )
+
+                mixed_images.append(image.squeeze(0))
+                mixed_masks.append(mask.squeeze(0))
+
+            mixed_images = torch.stack(mixed_images)
+            mixed_masks = torch.stack(mixed_masks)
 
 
-            ## Training with Target
-            D1_out = model_D1(F.softmax(trg_logits[-3], dim=1))
-            D2_out = model_D2(F.softmax(trg_logits[-2], dim=1))
-            loss_D1_trg = bce_criterion(D1_out, torch.full_like(D1_out, trg_label, device=device))
-            loss_D2_trg = bce_criterion(D2_out, torch.full_like(D2_out, trg_label, device=device))
-            loss_D_trg = (loss_D1_trg + loss_D2_trg) / 2
-            # loss_D_trg.backward(retain_graph=True)
 
-            cumulative_D_loss += loss_D1_trg.item() + loss_D2_trg.item()
+            mixed_logits = model(mixed_images)
 
+            h, w = src_masks.size(1), src_masks.size(2)
+            ph, pw = mixed_logits[0].size(2), mixed_logits[0].size(3)
+            if ph != h or pw != w:
+                for j in range(len(mixed_logits)):
+                    mixed_logits[j] = F.interpolate(mixed_logits[j], size=(h, w), mode='bilinear', align_corners=False)
 
 
-            loss = loss_seg + loss_adv + loss_D_src + loss_D_trg
+            mixed_boundaries = compute_boundaries(mixed_masks)
+
+            # for image, mask, boundary in zip(mixed_images, mixed_masks, mixed_boundaries):
+            #     plot_dataset_entry(
+            #         image.numpy(),
+            #         mask.numpy(),
+            #         boundary.numpy(),
+            #         np_format=True,
+            #         alpha=1.,
+            #         title="Mixed produced data",
+            #         show=True
+            #     )
+
+
+            loss_s = criterion(mixed_logits[:-1], mixed_masks, balance_weights=[0.4, 1.0])
+            loss_b = bd_criterion(mixed_logits[-1], mixed_boundaries)
+
+            filler = torch.ones_like(mixed_masks) * 255
+            bd_label = torch.where(F.sigmoid(mixed_logits[-1][:,0,:,:])>0.8, mixed_masks, filler)
+            loss_sb = criterion(mixed_logits[-2], bd_label)
+            
+            loss_unlabeled = loss_s + loss_b + loss_sb
+
+            cumulative_loss_unlabeled += loss_unlabeled.item()
+            
+
+            loss = loss_labeled + loss_unlabeled
             loss.backward()
-
-
 
             # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
-            optimizer_D1.step()
-            optimizer_D2.step()
+
+
+            # Update ema_model
+            iteration = (train_num_steps * e + count)
+            alpha_teacher = min(1 - 1 / (iteration + 1), 0.99)
+            for ema_param, param in zip(ema_model.parameters(), model.parameters()):
+                ema_param.data[:] = alpha_teacher * ema_param[:].data[:] + (1 - alpha_teacher) * param[:].data[:]
+
+
 
             predictions = torch.argmax(torch.softmax(src_logits[-2], dim=1), dim=1)
             
             count += 1
 
-            train_seg_loss = cumulative_seg_loss / count
-            train_adv_loss = cumulative_adv_loss / count
-            train_D_loss = cumulative_D_loss / count
+            train_loss = (cumulative_loss_labeled + cumulative_loss_unlabeled) / count
+            train_loss_labeled = cumulative_loss_labeled / count
+            train_loss_unlabeled = cumulative_loss_unlabeled / count
 
             mIoU, _ = compute_mIoU(predictions, src_masks, NUM_CLASSES)
             cumulative_mIoU += mIoU
@@ -705,18 +653,24 @@ def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, 
             monitor.update(
                 i + 1,
                 learning_rate=f"{learning_rate:.5f}",
-                train_seg_loss=f"{train_seg_loss:.4f}",
-                train_adv_loss=f"{train_adv_loss:.4f}",
-                train_D2_loss=f"{train_D_loss:.4f}",
+                train_loss=f"{train_loss:.4f}",
+                train_loss_labeled=f"{train_loss_labeled:.4f}",
+                train_loss_unlabeled=f"{train_loss_unlabeled:.4f}",
                 train_mIoU=f"{train_mIoU:.4f}",
             )
 
-        train_seg_losses.append(train_seg_loss)
-        train_adv_losses.append(train_adv_loss)
-        train_D_losses.append(train_D_loss)
+        train_losses_labeled.append(train_loss_labeled)
+        train_losses_unlabeled.append(train_loss_unlabeled)
+        train_losses = [a + b for a, b in zip(train_losses_labeled, train_losses_unlabeled)]
         train_mIoUs.append(train_mIoU)
 
         monitor.stop()
+
+
+
+
+
+
 
 
 
@@ -725,13 +679,11 @@ def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, 
         monitor.start(desc=f"Validation", max_progress=val_num_steps)
 
         cumulative_loss = 0.0
-        cumulative_mIoU = 0.0
         count = 0
         val_mIoU = 0.0
 
         model.eval()
-        model_D1.eval()
-        model_D2.eval()
+        ema_model.eval()
 
         src_train_iter = iter(src_valloader)
         trg_train_iter = iter(trg_valloader)
@@ -741,6 +693,7 @@ def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, 
                 src_images, src_masks, src_boundaries = next(src_train_iter)
                 src_images, src_masks, src_boundaries = src_images.to(device), src_masks.to(device), src_boundaries.to(device)
 
+            
                 src_logits = model(src_images)
 
                 h, w = src_masks.size(1), src_masks.size(2)
@@ -760,7 +713,7 @@ def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, 
                 loss = loss_s + loss_b + loss_sb
 
                 cumulative_loss += loss.item()
-                
+
                     
                 predictions = torch.argmax(torch.softmax(src_logits[-2], dim=1), dim=1)
             
@@ -788,341 +741,6 @@ def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, 
 
         if best_val_loss is None or val_loss < best_val_loss:
             save_model(model, f"{res_dir}/weights/best_{model_number}.pt")
-            save_model(model_D1, f"{res_dir}/weights/best_D1_{model_number}.pt")
-            save_model(model_D2, f"{res_dir}/weights/best_D2_{model_number}.pt")
-            monitor.log(f"Model saved as best_{model_number}.pt\n")
-            best_val_loss = val_loss
-            patience_counter = 0
-        else:
-            patience_counter += 1
-
-        if patience_counter >= patience:
-            monitor.log(f"Early stopping after {e + 1} epochs\n")
-            break
-
-
-
-
-        scheduler.step()
-        scheduler_D1.step()
-        scheduler_D2.step()
-
-        save_model(model, f"{res_dir}/weights/last_{model_number}.pt")
-        save_model(model_D1, f"{res_dir}/weights/last_D1_{model_number}.pt")
-        save_model(model_D2, f"{res_dir}/weights/last_D2_{model_number}.pt")
-
-
-        plot_metrics(
-            values_list=[train_seg_losses],
-            labels=["Train Seg Loss"],
-            title="Loss",
-            xlabel="Epoch",
-            ylabel="Loss",
-            res_dir=res_dir,
-            file_name=f"loss_seg_{model_number}"
-        )
-
-        plot_metrics(
-            values_list=[train_adv_losses],
-            labels=["Train Adv Loss"],
-            title="Loss",
-            xlabel="Epoch",
-            ylabel="Loss",
-            res_dir=res_dir,
-            file_name=f"loss_adv_{model_number}"
-        )
-
-        plot_metrics(
-            values_list=[train_D_losses],
-            labels=["Train D Loss"],
-            title="Loss",
-            xlabel="Epoch",
-            ylabel="Loss",
-            res_dir=res_dir,
-            file_name=f"loss_D_{model_number}"
-        )
-        
-        plot_metrics(
-            values_list=[train_mIoUs, val_mIoUs],
-            labels=["Train mIoU", "Val mIoU"],
-            title="Mean Intersection over Union",
-            xlabel="Epoch",
-            ylabel="mIoU",
-            res_dir=res_dir,
-            file_name=f"mIoU_{model_number}"
-        )
-
-        plot_metrics(
-            values_list=[learning_rates],
-            labels=["Learning rate"],
-            title="Learning rate",
-            xlabel="Epoch",
-            ylabel="lr",
-            res_dir=res_dir,
-            file_name=f"learning_rate_{model_number}"
-        )
-
-
-    monitor.print_stats()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-def train_single_level(model, model_D2, model_number, src_trainloader, trg_trainloader, src_valloader, trg_valloader, criterion, bd_criterion, bce_criterion, \
-           optimizer, optimizer_D2, scheduler, scheduler_D2, epochs, init_epoch, patience, device, monitor, res_dir):
-    
-    cudnn.benchmark = True
-
-    src_label = 0
-    trg_label = 1
-
-    train_num_steps = min(len(src_trainloader), len(trg_trainloader))
-    val_num_steps = min(len(src_valloader), len(trg_valloader))
-
-    train_seg_losses = []
-    train_adv_losses = []
-    train_D_losses = []
-
-    val_losses = []
-
-    train_mIoUs = []
-    val_mIoUs = []
-
-    learning_rates = []
-
-    best_val_loss = None
-    patience_counter = 0
-
-    for e in range(init_epoch-1, epochs):
-        # Training
-        monitor.start(desc=f"Epoch {e + 1}/{epochs}", max_progress=train_num_steps)
-
-        learning_rate = scheduler.get_last_lr()[0]
-        learning_rates.append(learning_rate)
-
-        cumulative_seg_loss = 0.0
-        cumulative_adv2_loss = 0.0
-        cumulative_D2_loss = 0.0
-
-        cumulative_mIoU = 0.0
-        count = 0
-        train_mIoU = 0.0
-
-
-        model.train()
-        model_D2.train()
-
-        src_train_iter = iter(src_trainloader)
-        trg_train_iter = iter(trg_trainloader)
-
-        for i in range(train_num_steps):
-            src_images, src_masks, src_boundaries = next(src_train_iter)
-            src_images, src_masks, src_boundaries = src_images.to(device), src_masks.to(device), src_boundaries.to(device)
-            trg_images, _, _ = next(trg_train_iter)
-            trg_images = trg_images.to(device)
-
-
-            optimizer.zero_grad()
-            optimizer_D2.zero_grad()
-
-
-            src_logits = model(src_images)
-
-            h, w = src_masks.size(1), src_masks.size(2)
-            ph, pw = src_logits[0].size(2), src_logits[0].size(3)
-            if ph != h or pw != w:
-                for j in range(len(src_logits)):
-                    src_logits[j] = F.interpolate(src_logits[j], size=(h, w), mode='bilinear', align_corners=False)
-
-            trg_logits = model(trg_images)
-
-            h, w = src_masks.size(1), src_masks.size(2)
-            ph, pw = trg_logits[0].size(2), trg_logits[0].size(3)
-            if ph != h or pw != w:
-                for j in range(len(trg_logits)):
-                    trg_logits[j] = F.interpolate(trg_logits[j], size=(h, w), mode='bilinear', align_corners=False)
-
-
-
-
-            # Train Segmentation Network
-            for param in model_D2.parameters():
-                param.requires_grad = False
-
-            ## Training with Source
-            loss_s = criterion(src_logits[:-1], src_masks, balance_weights=[0.4, 1.0])
-            loss_b = bd_criterion(src_logits[-1], src_boundaries)
-
-            filler = torch.ones_like(src_masks) * 255
-            bd_label = torch.where(F.sigmoid(src_logits[-1][:,0,:,:])>0.8, src_masks, filler)
-            loss_sb = criterion(src_logits[-2], bd_label)
-            
-            loss_seg = loss_s + loss_b + loss_sb
-            # loss_seg.backward(retain_graph=True)
-
-            cumulative_seg_loss += loss_seg.item()
-
-            ## Training with Target
-            D2_out = model_D2(F.softmax(trg_logits[-2], dim=1))
-            loss_adv2 = bce_criterion(D2_out, torch.full_like(D2_out, src_label, device=device))
-            lambda_adv2 = 0.001
-            loss_adv2 = loss_adv2 * lambda_adv2
-            # loss_adv2.backward(retain_graph=True)
-
-            cumulative_adv2_loss += loss_adv2.item()
-
-
-
-            # Train Discriminant Network
-            for param in model_D2.parameters():
-                param.requires_grad = True
-
-            ## Training with Source
-            D2_out = model_D2(F.softmax(src_logits[-2], dim=1))
-            loss_D2_src = bce_criterion(D2_out, torch.full_like(D2_out, src_label, device=device))
-            loss_D2_src = loss_D2_src / 2
-            # loss_D2_src.backward(retain_graph=True)
-
-            cumulative_D2_loss += loss_D2_src.item()
-
-
-            ## Training with Target
-            D2_out = model_D2(F.softmax(trg_logits[-2], dim=1))
-            loss_D2_trg = bce_criterion(D2_out, torch.full_like(D2_out, trg_label, device=device))
-            loss_D2_trg = loss_D2_trg / 2
-            # loss_D2_trg.backward()
-
-            cumulative_D2_loss += loss_D2_trg.item()
-
-
-
-
-
-            
-            loss = loss_seg + loss_adv2 + loss_D2_src + loss_D2_trg
-            loss.backward()
-
-
-
-
-
-
-
-            # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            optimizer.step()
-            optimizer_D2.step()
-
-            predictions = torch.argmax(torch.softmax(src_logits[-2], dim=1), dim=1)
-            
-            count += 1
-
-            train_seg_loss = cumulative_seg_loss / count
-            train_adv2_loss = cumulative_adv2_loss / count
-            train_D2_loss = cumulative_D2_loss / count
-
-            mIoU, _ = compute_mIoU(predictions, src_masks, NUM_CLASSES)
-            cumulative_mIoU += mIoU
-            train_mIoU = cumulative_mIoU / count
-
-            monitor.update(
-                i + 1,
-                learning_rate=f"{learning_rate:.5f}",
-                train_seg_loss=f"{train_seg_loss:.4f}",
-                train_adv2_loss=f"{train_adv2_loss:.4f}",
-                train_D2_loss=f"{train_D2_loss:.4f}",
-                train_mIoU=f"{train_mIoU:.4f}",
-            )
-
-        train_seg_losses.append(train_seg_loss)
-        train_adv_losses.append(train_adv2_loss)
-        train_D_losses.append(train_D2_loss)
-        train_mIoUs.append(train_mIoU)
-
-        monitor.stop()
-
-
-
-
-        # Validation
-        monitor.start(desc=f"Validation", max_progress=val_num_steps)
-
-        cumulative_loss = 0.0
-        cumulative_mIoU = 0.0
-        count = 0
-        val_mIoU = 0.0
-
-        model.eval()
-        model_D2.eval()
-
-        src_train_iter = iter(src_valloader)
-        trg_train_iter = iter(trg_valloader)
-
-        with torch.no_grad():
-            for i in range(val_num_steps):
-                src_images, src_masks, src_boundaries = next(src_train_iter)
-                src_images, src_masks, src_boundaries = src_images.to(device), src_masks.to(device), src_boundaries.to(device)
-
-                src_logits = model(src_images)
-
-                h, w = src_masks.size(1), src_masks.size(2)
-                ph, pw = src_logits[0].size(2), src_logits[0].size(3)
-                if ph != h or pw != w:
-                    for j in range(len(src_logits)):
-                        src_logits[j] = F.interpolate(src_logits[j], size=(h, w), mode='bilinear', align_corners=False)
-
-
-                loss_s = criterion(src_logits[:-1], src_masks, balance_weights=[0.4, 1.0])
-                loss_b = bd_criterion(src_logits[-1], src_boundaries)
-
-                filler = torch.ones_like(src_masks) * 255
-                bd_label = torch.where(F.sigmoid(src_logits[-1][:,0,:,:])>0.8, src_masks, filler)
-                loss_sb = criterion(src_logits[-2], bd_label)
-                
-                loss = loss_s + loss_b + loss_sb
-
-                cumulative_loss += loss.item()
-
-            
-                    
-                predictions = torch.argmax(torch.softmax(src_logits[-2], dim=1), dim=1)
-            
-                count += 1
-
-                val_loss = cumulative_loss / count
-
-                mIoU, _ = compute_mIoU(predictions, src_masks, NUM_CLASSES)
-                cumulative_mIoU += mIoU
-                val_mIoU = cumulative_mIoU / count
-
-                monitor.update(
-                    i + 1,
-                    learning_rate=f"{learning_rate:.5f}",
-                    val_loss=f"{val_loss:.4f}",
-                    val_mIoU=f"{val_mIoU:.4f}",
-                )
-
-
-        val_losses.append(val_loss)
-        val_mIoUs.append(val_mIoU)
-
-        monitor.stop()
-
-
-        if best_val_loss is None or val_loss < best_val_loss:
-            save_model(model, f"{res_dir}/weights/best_{model_number}.pt")
-            save_model(model_D2, f"{res_dir}/weights/best_D2_{model_number}.pt")
             monitor.log(f"Model saved as best_{model_number}.pt\n")
             best_val_loss = val_loss
             patience_counter = 0
@@ -1135,15 +753,23 @@ def train_single_level(model, model_D2, model_number, src_trainloader, trg_train
 
 
         scheduler.step()
-        scheduler_D2.step()
 
         save_model(model, f"{res_dir}/weights/last_{model_number}.pt")
-        save_model(model_D2, f"{res_dir}/weights/last_D2_{model_number}.pt")
-
+        save_model(ema_model, f"{res_dir}/weights/last_ema_{model_number}.pt")
 
         plot_metrics(
-            values_list=[train_seg_losses],
-            labels=["Train Seg Loss"],
+            values_list=[train_losses],
+            labels=["Train Cumulative Loss"],
+            title="Loss",
+            xlabel="Epoch",
+            ylabel="Loss",
+            res_dir=res_dir,
+            file_name=f"loss_{model_number}"
+        )
+
+        plot_metrics(
+            values_list=[train_losses_labeled, val_losses],
+            labels=["Train Labeled Loss", "Val Loss"],
             title="Loss",
             xlabel="Epoch",
             ylabel="Loss",
@@ -1152,25 +778,15 @@ def train_single_level(model, model_D2, model_number, src_trainloader, trg_train
         )
 
         plot_metrics(
-            values_list=[train_adv_losses],
-            labels=["Train Adv Loss"],
+            values_list=[train_losses_labeled, train_losses_unlabeled],
+            labels=["Train Labeled Loss", "Train Unlabeled Loss"],
             title="Loss",
             xlabel="Epoch",
             ylabel="Loss",
             res_dir=res_dir,
-            file_name=f"loss_adv_{model_number}"
+            file_name=f"loss_train_{model_number}"
         )
 
-        plot_metrics(
-            values_list=[train_D_losses],
-            labels=["Train D Loss"],
-            title="Loss",
-            xlabel="Epoch",
-            ylabel="Loss",
-            res_dir=res_dir,
-            file_name=f"loss_D_{model_number}"
-        )
-        
         plot_metrics(
             values_list=[train_mIoUs, val_mIoUs],
             labels=["Train mIoU", "Val mIoU"],
@@ -1334,91 +950,57 @@ def main():
         src_trainloader, src_valloader, _ = dataset_preprocessing(
             domain="Urban",
             batch_size=args.batch_size,
-            data_augmentation=True,
+            data_augmentation=False,
             args=args
         )
 
         trg_trainloader, trg_valloader, _ = dataset_preprocessing(
             domain="Rural",
             batch_size=args.batch_size,
-            data_augmentation=True,
+            data_augmentation=False,
             args=args
         )
         
         # inspect_dataset(src_trainloader, src_valloader)
 
-        model, model_D1, model_D2 = get_model(args, device)
+        model, ema_model = get_model(args, device)
 
         model_number = get_model_number(res_dir)
+
         if args.resume:
             model = load_model(model, f"{res_dir}/weights/last_{model_number-1}.pt", device)
-            model_D2 = load_model(model_D2, f"{res_dir}/weights/last_D2_{model_number-1}.pt", device)
-            if args.mode == "multi_level":
-                model_D1 = load_model(model_D1, f"{res_dir}/weights/last_D1_{model_number-1}.pt", device)
+            ema_model = load_model(ema_model, f"{res_dir}/weights/last_ema_{model_number-1}.pt", device)
 
 
-        criterion, bd_criterion, bce_criterion = get_criterion()
-        optimizer, optimizer_D1, optimizer_D2 = get_optimizer(model, model_D1, model_D2, args)
-        scheduler, scheduler_D1, scheduler_D2 = get_scheduler(optimizer, optimizer_D1, optimizer_D2, args)
+        criterion, bd_criterion = get_criterion()
+        optimizer = get_optimizer(model, args)
+        scheduler = get_scheduler(optimizer, args)
 
         if args.resume:
             for _ in range(args.resume_epoch-1):
                 scheduler.step()
-                scheduler_D2.step()
-                if args.mode == "multi_level":
-                    scheduler_D1.step()
 
         log_training_setup(device, args, train_monitor)
 
-        if args.mode == "single_level":
-            train_single_level(
-                model=model,
-                model_D2=model_D2,
-                model_number=model_number,
-                src_trainloader=src_trainloader,
-                trg_trainloader=trg_trainloader,
-                src_valloader=src_valloader,
-                trg_valloader=trg_valloader,
-                criterion=criterion,
-                bd_criterion=bd_criterion,
-                bce_criterion=bce_criterion,
-                optimizer=optimizer,
-                optimizer_D2=optimizer_D2,
-                scheduler=scheduler,
-                scheduler_D2=scheduler_D2,
-                epochs=args.epochs,
-                init_epoch=args.resume_epoch,
-                patience=args.patience,
-                device=device,
-                monitor=train_monitor,
-                res_dir=res_dir
-            )
-        elif args.mode == "multi_level":
-            train_multi_level(
-                model=model,
-                model_D1=model_D1,
-                model_D2=model_D2,
-                model_number=model_number,
-                src_trainloader=src_trainloader,
-                trg_trainloader=trg_trainloader,
-                src_valloader=src_valloader,
-                trg_valloader=trg_valloader,
-                criterion=criterion,
-                bd_criterion=bd_criterion,
-                bce_criterion=bce_criterion,
-                optimizer=optimizer,
-                optimizer_D1=optimizer_D1,
-                optimizer_D2=optimizer_D2,
-                scheduler=scheduler,
-                scheduler_D1=scheduler_D1,
-                scheduler_D2=scheduler_D2,
-                epochs=args.epochs,
-                init_epoch=args.resume_epoch,
-                patience=args.patience,
-                device=device,
-                monitor=train_monitor,
-                res_dir=res_dir
-            )
+        train(
+            model=model,
+            ema_model=ema_model,
+            model_number=model_number,
+            src_trainloader=src_trainloader,
+            trg_trainloader=trg_trainloader,
+            src_valloader=src_valloader,
+            trg_valloader=trg_valloader,
+            criterion=criterion,
+            bd_criterion=bd_criterion,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            epochs=args.epochs,
+            init_epoch=args.resume_epoch,
+            patience=args.patience,
+            device=device,
+            monitor=train_monitor,
+            res_dir=res_dir
+        )
     
 
     if args.test:

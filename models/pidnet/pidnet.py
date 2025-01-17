@@ -183,7 +183,7 @@ class PIDNet(nn.Module):
 
 
 
-def PIDNet_S(num_classes, pretrain, pretrain_model_path):
+def PIDNet_S(num_classes, pretrain, pretrain_model_path=None):
     model = PIDNet(m=2, n=3, num_classes=num_classes, planes=32, ppm_planes=96, head_planes=128, augment=True)
 
     if pretrain:
@@ -196,7 +196,7 @@ def PIDNet_S(num_classes, pretrain, pretrain_model_path):
     
     return model
 
-def PIDNet_M(num_classes, pretrain, pretrain_model_path):
+def PIDNet_M(num_classes, pretrain, pretrain_model_path=None):
     model = PIDNet(m=2, n=3, num_classes=num_classes, planes=64, ppm_planes=96, head_planes=128, augment=True)
 
     if pretrain:
@@ -209,7 +209,7 @@ def PIDNet_M(num_classes, pretrain, pretrain_model_path):
     
     return model
 
-def PIDNet_L(num_classes, pretrain, pretrain_model_path):
+def PIDNet_L(num_classes, pretrain, pretrain_model_path=None):
     model = PIDNet(m=3, n=4, num_classes=num_classes, planes=64, ppm_planes=112, head_planes=256, augment=True)
     if pretrain:
         pretrained_state = torch.load(pretrain_model_path, map_location='cpu')['state_dict'] 

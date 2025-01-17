@@ -39,7 +39,7 @@ def get_boundary_color_image(np_image, np_boundary):
 
 
 
-def plot_dataset_entry(image, mask, boundary, alpha=1., title=None, description=None, show=True):
+def plot_dataset_entry(image, mask, boundary, np_format=False, alpha=1., title=None, description=None, show=True):
     fig, axes = plt.subplots(1, 3, figsize=(17, 7))
 
     axes = axes.flatten()
@@ -47,22 +47,27 @@ def plot_dataset_entry(image, mask, boundary, alpha=1., title=None, description=
     if title is not None:
         fig.suptitle(title)
 
-    np_image = image.numpy().transpose((1, 2, 0)) * np.array(STD) + np.array(MEAN)
-    axes[0].imshow(np_image)
+    if not np_format:
+        image = image.numpy()
+    image = image.transpose((1, 2, 0)) * np.array(STD) + np.array(MEAN)
+    axes[0].imshow(image)
     axes[0].axis("off")
     axes[0].set_title("Image")
 
-    np_mask = mask.numpy()
-    np_mask_color_image = get_mask_color_image(np_image, np_mask)
-    axes[1].imshow(np_image)
-    axes[1].imshow(np_mask_color_image, alpha=alpha)
+
+    if not np_format:
+        mask = mask.numpy()
+    mask_color_image = get_mask_color_image(image, mask)
+    axes[1].imshow(image)
+    axes[1].imshow(mask_color_image, alpha=alpha)
     axes[1].axis("off")
     axes[1].set_title("Mask")
 
-    np_boundary = boundary.numpy()
-    np_boundary_color_image = get_boundary_color_image(np_image, np_boundary)
-    axes[2].imshow(np_image)
-    axes[2].imshow(np_boundary_color_image, alpha=alpha)
+    if not np_format:
+        boundary = boundary.numpy()
+    boundary_color_image = get_boundary_color_image(image, boundary)
+    axes[2].imshow(image)
+    axes[2].imshow(boundary_color_image, alpha=alpha)
     axes[2].axis("off")
     axes[2].set_title("Boundary")
 
@@ -171,79 +176,15 @@ def inspect_dataset(trainloader, valloader):
 
 
 
-
-def plot_loss(train_losses, val_losses, model_number, res_dir):
+def plot_metrics(values_list, labels, title, xlabel, ylabel, res_dir, file_name):
     fig = plt.figure()
-    plt.title("Loss")
-    plt.ylabel("Loss")
-    plt.xlabel("Epoch")
-    plt.plot(train_losses, label="Train Loss")
-    plt.plot(val_losses, label="Val Loss")
+    plt.title(title)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+
+    for values, label in zip(values_list, labels):
+        plt.plot(values, label=label)
+
     plt.legend()
-    plt.savefig(f"{res_dir}/plots/loss_{model_number}.pdf")
-    plt.close(fig)
-
-
-def plot_mIoU(train_mIoUs, val_mIoUs, model_number, res_dir):
-    fig = plt.figure()
-    plt.title("Mean Intersection over Union")
-    plt.ylabel("mIoU")
-    plt.xlabel("Epoch")
-    plt.plot(train_mIoUs, label="Train mIoU")
-    plt.plot(val_mIoUs, label="Val mIoU")
-    plt.legend()
-    plt.savefig(f"{res_dir}/plots/mIoU_{model_number}.pdf")
-    plt.close(fig)
-
-
-def plot_learning_rate(learning_rates, model_number, res_dir):
-    fig = plt.figure()
-    plt.title("Learning rate")
-    plt.ylabel("learning rate")
-    plt.xlabel("Epoch")
-    plt.plot(learning_rates, label="Learning Rate")
-    plt.legend()
-    plt.savefig(f"{res_dir}/plots/learning_rate_{model_number}.pdf")
-    plt.close(fig)
-
-
-
-def plot_seg_loss_da_adv(train_seg_losses, val_seg_losses, model_number, res_dir):
-    fig = plt.figure()
-    plt.title("Loss")
-    plt.ylabel("Loss")
-    plt.xlabel("Epoch")
-
-    plt.plot(train_seg_losses, label="Train Seg Loss")
-    plt.plot(val_seg_losses, label="Val Seg Loss")
-    
-    plt.legend()
-    plt.savefig(f"{res_dir}/plots/loss_seg_{model_number}.pdf")
-    plt.close(fig)
-
-
-def plot_adv_loss_da_adv(train_adv_losses, val_adv_losses, model_number, res_dir):
-    fig = plt.figure()
-    plt.title("Loss")
-    plt.ylabel("Loss")
-    plt.xlabel("Epoch")
-
-    plt.plot(train_adv_losses, label="Train Adv Loss")
-    plt.plot(val_adv_losses, label="Val Adv Loss")
-    
-    plt.legend()
-    plt.savefig(f"{res_dir}/plots/loss_adv_{model_number}.pdf")
-    plt.close(fig)
-
-def plot_D_loss_da_adv(train_D_losses, val_D_losses, model_number, res_dir):
-    fig = plt.figure()
-    plt.title("Loss")
-    plt.ylabel("Loss")
-    plt.xlabel("Epoch")
-
-    plt.plot(train_D_losses, label="Train D Loss")
-    plt.plot(val_D_losses, label="Val D Loss")
-    
-    plt.legend()
-    plt.savefig(f"{res_dir}/plots/loss_D_{model_number}.pdf")
+    plt.savefig(f"{res_dir}/plots/{file_name}.pdf")
     plt.close(fig)
