@@ -629,7 +629,7 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
             loss = loss_labeled + loss_unlabeled
             loss.backward()
 
-            # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
 
 
