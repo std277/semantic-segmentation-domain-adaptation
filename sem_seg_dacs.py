@@ -297,9 +297,9 @@ def log_training_setup(device, args, monitor):
 
     data_augmentation = args.color_jitter_augmentation or args.gaussian_blur_augmentation
     monitor.log(f"Data augmentation: {data_augmentation}")
-    if args.horizontal_flip_augmentation:
+    if args.color_jitter_augmentation:
         monitor.log(f"- ColorJitter")
-    if args.shift_scale_rotate_augmentation:
+    if args.gaussian_blur_augmentation:
         monitor.log(f"- GaussianBlur")
 
     monitor.log(f"Batch size: {args.batch_size}\n")
