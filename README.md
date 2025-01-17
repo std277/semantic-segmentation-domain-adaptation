@@ -73,8 +73,7 @@ Resizing: (512, 512)
 | 0       | -                  | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 30         | 33.31            | 18.67            |
 | 1       | (CJ, GB)           | Urban      | 2          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 40         |             |             | 
 
-| 1T       | (HF, SSR, GD)      | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 30         | 30.96            | 18.56            | (DATA AUGMENTATION PRIMA DEL MIXING)
-| 2T       | -                  | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 45         | 34.72            | 17.37            | (LONGER TRAINING)
+| 0T       | -                  | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 45         | 34.72            | 17.37            | (LONGER TRAINING)
 
 
 Data augmentation:
