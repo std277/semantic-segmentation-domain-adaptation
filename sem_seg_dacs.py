@@ -248,7 +248,7 @@ def get_results_dir(store, model_name, version):
     else:
         res_dir = "res"
 
-    dir_name = f"{model_name}__DACS_{version}"
+    dir_name = f"{model_name}_DACS_{version}"
     res_dir = f"{res_dir}/{dir_name}"
 
     return res_dir
@@ -823,7 +823,7 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
 
 
 
-def test(model_name, model, valloader, device, monitor):
+def test(model, valloader, device, monitor):
     monitor.start(desc=f"Testing", max_progress=len(valloader))
 
     flops_count = 0
@@ -902,7 +902,7 @@ def test(model_name, model, valloader, device, monitor):
 
 
 
-def predict(model_name, model, valloader, device):
+def predict(model, valloader, device):
     model.eval()
     with torch.no_grad():
 
@@ -1027,7 +1027,6 @@ def main():
         log_testing_setup(device, args, test_monitor)
 
         test(
-            model_name=args.model_name,
             model=model,
             valloader=valloader,
             device=device,
@@ -1049,7 +1048,6 @@ def main():
         model = load_model(model, f"{res_dir}/weights/{args.model_file}", device)
 
         predict(
-            model_name=args.model_name,
             model=model,
             valloader=valloader,
             device=device
