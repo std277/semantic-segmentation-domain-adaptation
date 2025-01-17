@@ -954,14 +954,14 @@ def main():
         src_trainloader, src_valloader, _ = dataset_preprocessing(
             domain="Urban",
             batch_size=args.batch_size,
-            data_augmentation=False,
+            data_augmentation=True,
             args=args
         )
 
         trg_trainloader, trg_valloader, _ = dataset_preprocessing(
             domain="Rural",
             batch_size=args.batch_size,
-            data_augmentation=False,
+            data_augmentation=True,
             args=args
         )
         
