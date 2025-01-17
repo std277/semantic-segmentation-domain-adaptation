@@ -812,8 +812,8 @@ def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, 
 
 
         plot_metrics(
-            values_list=[train_seg_losses],
-            labels=["Train Seg Loss"],
+            values_list=[train_seg_losses, val_losses],
+            labels=["Train Seg Loss", "Val Lodd"],
             title="Loss",
             xlabel="Epoch",
             ylabel="Loss",
@@ -1140,8 +1140,8 @@ def train_single_level(model, model_D2, model_number, src_trainloader, trg_train
 
 
         plot_metrics(
-            values_list=[train_seg_losses],
-            labels=["Train Seg Loss"],
+            values_list=[train_seg_losses, val_losses],
+            labels=["Train Seg Loss", "Val Lodd"],
             title="Loss",
             xlabel="Epoch",
             ylabel="Loss",

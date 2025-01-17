@@ -89,7 +89,8 @@ Standard deviation of inference time: 2.660 ms
 
 
 
-Notes: 
+Notes:
+- Add save checkpoint model 
 - Adversarial not working properly?
 - DACS poor results
 
