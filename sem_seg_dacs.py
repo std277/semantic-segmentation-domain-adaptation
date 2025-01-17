@@ -115,33 +115,15 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--horizontal_flip_augmentation",
+        "--color_jitter_augmentation",
         action="store_true",
-        help="Performs horizontal flip data augmentation on dataset."
+        help="Performs color jitter data augmentation on dataset."
     )
 
     parser.add_argument(
-        "--shift_scale_rotate_augmentation",
+        "--gaussian_blur_augmentation",
         action="store_true",
-        help="Performs shift scale rotate data augmentation on dataset."
-    )
-
-    parser.add_argument(
-        "--brightness_contrast_augmentation",
-        action="store_true",
-        help="Performs random brightness contrast data augmentation on dataset."
-    )
-
-    parser.add_argument(
-        "--coarse_dropout_augmentation",
-        action="store_true",
-        help="Performs coarse dropout data augmentation on dataset."
-    )
-
-    parser.add_argument(
-        "--grid_distortion_augmentation",
-        action="store_true",
-        help="Performs grid distortion data augmentation on dataset."
+        help="Performs gaussian blur data augmentation on dataset."
     )
 
     parser.add_argument(
@@ -313,18 +295,12 @@ def log_training_setup(device, args, monitor):
         device_name = torch.cuda.get_device_name(torch.cuda.current_device())
         monitor.log(f"Cuda device name: {device_name}")
 
-    data_augmentation = args.horizontal_flip_augmentation or args.shift_scale_rotate_augmentation or args.brightness_contrast_augmentation or args.coarse_dropout_augmentation or args.grid_distortion_augmentation
+    data_augmentation = args.color_jitter_augmentation or args.gaussian_blur_augmentation
     monitor.log(f"Data augmentation: {data_augmentation}")
     if args.horizontal_flip_augmentation:
-        monitor.log(f"- HorizontalFlip(p=0.5)")
+        monitor.log(f"- ColorJitter")
     if args.shift_scale_rotate_augmentation:
-        monitor.log(f"- ShiftScaleRotate(shift_limit=0.1, scale_limit=0.2, rotate_limit=15, p=0.5)")
-    if args.brightness_contrast_augmentation:
-        monitor.log(f"- RandomBrightnessContrast(p=0.5)")
-    if args.coarse_dropout_augmentation:
-        monitor.log(f"- CoarseDropout(max_holes=8, max_height=32, max_width=32, p=0.5)")
-    if args.grid_distortion_augmentation:
-        monitor.log(f"- GridDistortion(num_steps=5, distort_limit=0.3, p=0.5)")
+        monitor.log(f"- GaussianBlur")
 
     monitor.log(f"Batch size: {args.batch_size}\n")
 
@@ -340,35 +316,13 @@ def log_testing_setup(device, args, monitor):
 
 
 
-def dataset_preprocessing(domain, batch_size, data_augmentation, args):
+def dataset_preprocessing(domain, batch_size):
     
-    # Define transforms
-    if data_augmentation:
-        transform_list = []
-        transform_list.append(Resize(512, 512))
-        transform_list.append(Normalize(mean=MEAN, std=STD))
-
-        if args.horizontal_flip_augmentation:
-            transform_list.append(HorizontalFlip(p=0.5))
-        if args.shift_scale_rotate_augmentation:
-            transform_list.append(ShiftScaleRotate(shift_limit=0.1, scale_limit=0.2, rotate_limit=15, p=0.5))
-        if args.brightness_contrast_augmentation:
-            transform_list.append(RandomBrightnessContrast(p=0.5))
-        if args.coarse_dropout_augmentation:
-            transform_list.append(CoarseDropout(max_holes=8, max_height=32, max_width=32, p=0.5))
-        if args.grid_distortion_augmentation:
-            transform_list.append(GridDistortion(num_steps=5, distort_limit=0.3, p=0.5))
-
-        transform_list.append(ToTensorV2())
-
-        transform = Compose(transform_list)
-
-    else:
-        transform = Compose([
-            Resize(512, 512),
-            Normalize(mean=MEAN, std=STD),
-            ToTensorV2()
-        ])
+    transform = Compose([
+        Resize(512, 512),
+        Normalize(mean=MEAN, std=STD),
+        ToTensorV2()
+    ])
 
     # Define the Dataset object for training, validation and testing
     traindataset = LoveDADataset(dataset_type="Train", domain=domain, transform=transform, root_dir='data')
@@ -482,7 +436,7 @@ def compute_mIoU(predictions, masks, num_classes):
 
 
 def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_valloader, trg_valloader, criterion, bd_criterion, \
-           optimizer, scheduler, epochs, init_epoch, patience, device, monitor, res_dir):
+           optimizer, scheduler, epochs, init_epoch, patience, device, monitor, res_dir, args):
     
     cudnn.benchmark = True
 
@@ -580,16 +534,18 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
                     target=torch.cat((src_masks[j].unsqueeze(0),trg_prediction[j].unsqueeze(0)))
                 )
 
-                image = colorJitter(
-                    colorJitter = random.uniform(0, 1),
-                    img_mean = torch.tensor(MEAN).to(device),
-                    data = image
-                )
+                if args.color_jitter_augmentation:
+                    image = colorJitter(
+                        colorJitter = random.uniform(0, 1),
+                        img_mean = torch.tensor(MEAN).to(device),
+                        data = image
+                    )
 
-                image = gaussian_blur(
-                    blur = random.uniform(0, 1),
-                    data = image
-                )
+                if args.gaussian_blur_augmentation:
+                    image = gaussian_blur(
+                        blur = random.uniform(0, 1),
+                        data = image
+                    )
 
                 mixed_images.append(image.squeeze(0))
                 mixed_masks.append(mask.squeeze(0))
@@ -964,16 +920,12 @@ def main():
 
         src_trainloader, src_valloader, _ = dataset_preprocessing(
             domain="Urban",
-            batch_size=args.batch_size,
-            data_augmentation=True,
-            args=args
+            batch_size=args.batch_size
         )
 
         trg_trainloader, trg_valloader, _ = dataset_preprocessing(
             domain="Rural",
-            batch_size=args.batch_size,
-            data_augmentation=True,
-            args=args
+            batch_size=args.batch_size
         )
         
         # inspect_dataset(src_trainloader, src_valloader)
@@ -1014,7 +966,8 @@ def main():
             patience=args.patience,
             device=device,
             monitor=train_monitor,
-            res_dir=res_dir
+            res_dir=res_dir,
+            args=args
         )
     
 
@@ -1027,9 +980,7 @@ def main():
 
         trainloader, valloader, _ = dataset_preprocessing(
             domain=args.target_domain,
-            batch_size=args.batch_size,
-            data_augmentation=False,
-            args=args
+            batch_size=args.batch_size
         )
 
         model, _ = get_model(args, device)
@@ -1050,9 +1001,7 @@ def main():
 
         trainloader, valloader, _ = dataset_preprocessing(
             domain=args.target_domain,
-            batch_size=1,
-            data_augmentation=False,
-            args=args
+            batch_size=1
         )
 
         model, _ = get_model(args, device)
