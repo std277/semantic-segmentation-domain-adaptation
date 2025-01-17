@@ -682,6 +682,7 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
         monitor.start(desc=f"Validation", max_progress=val_num_steps)
 
         cumulative_loss = 0.0
+        cumulative_mIoU = 0.0
         count = 0
         val_mIoU = 0.0
 
