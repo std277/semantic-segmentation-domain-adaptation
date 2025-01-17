@@ -597,8 +597,8 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
                     mixed_logits[j] = F.interpolate(mixed_logits[j], size=(h, w), mode='bilinear', align_corners=False)
 
 
-            mixed_boundaries = compute_boundaries(mixed_masks)
-
+            mixed_boundaries = compute_boundaries(mixed_masks.cpu())
+            
             # for image, mask, boundary in zip(mixed_images, mixed_masks, mixed_boundaries):
             #     plot_dataset_entry(
             #         image.numpy(),
@@ -610,6 +610,7 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
             #         show=True
             #     )
 
+            mixed_boundaries.to(device)
 
             loss_s = criterion(mixed_logits[:-1], mixed_masks, balance_weights=[0.4, 1.0])
             loss_b = bd_criterion(mixed_logits[-1], mixed_boundaries)
