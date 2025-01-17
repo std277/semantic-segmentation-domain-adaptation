@@ -96,5 +96,8 @@ Notes:
 - Training adversarial
 - Training DACS with data augmentation
 
+Next steps:
+- Try lower learning rate like in the paper (0.00025) 
+
 Optional:
 - Fix OhemCrossEntropyLoss
