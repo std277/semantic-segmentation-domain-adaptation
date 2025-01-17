@@ -160,7 +160,7 @@ def parse_args():
     parser.add_argument(
         "--batch_size",
         type=int,
-        default=8,
+        default=6,
         help=f"Specify the batch size.",
     )
 
