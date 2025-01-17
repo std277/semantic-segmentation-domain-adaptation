@@ -583,19 +583,9 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
                 mixed_images.append(image.squeeze(0))
                 mixed_masks.append(mask.squeeze(0))
 
+
             mixed_images = torch.stack(mixed_images)
             mixed_masks = torch.stack(mixed_masks)
-
-
-
-            mixed_logits = model(mixed_images)
-
-            h, w = src_masks.size(1), src_masks.size(2)
-            ph, pw = mixed_logits[0].size(2), mixed_logits[0].size(3)
-            if ph != h or pw != w:
-                for j in range(len(mixed_logits)):
-                    mixed_logits[j] = F.interpolate(mixed_logits[j], size=(h, w), mode='bilinear', align_corners=False)
-
 
             mixed_boundaries = compute_boundaries(mixed_masks.cpu())
             
@@ -610,7 +600,19 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
             #         show=True
             #     )
 
-            mixed_boundaries.to(device)
+            mixed_images = mixed_images.to(device)
+            mixed_masks = mixed_masks.to(device)
+            mixed_boundaries = mixed_boundaries.to(device)
+
+
+            mixed_logits = model(mixed_images)
+
+            h, w = src_masks.size(1), src_masks.size(2)
+            ph, pw = mixed_logits[0].size(2), mixed_logits[0].size(3)
+            if ph != h or pw != w:
+                for j in range(len(mixed_logits)):
+                    mixed_logits[j] = F.interpolate(mixed_logits[j], size=(h, w), mode='bilinear', align_corners=False)
+
 
             loss_s = criterion(mixed_logits[:-1], mixed_masks, balance_weights=[0.4, 1.0])
             loss_b = bd_criterion(mixed_logits[-1], mixed_boundaries)
