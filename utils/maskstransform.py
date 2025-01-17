@@ -74,9 +74,9 @@ def generate_cow_class_mask(pred, classes, sigma, p,):
 
 
 
-def colorJitter(colorJitter, img_mean, data = None, target = None, s=0.25):
+def colorJitter(colorJitter, img_mean, data = None, s=0.25):
     # s is the strength of colorjitter
-    #colorJitter
+    # colorJitter
     if not (data is None):
         if data.shape[1]==3:
             if colorJitter > 0.2:
@@ -85,9 +85,9 @@ def colorJitter(colorJitter, img_mean, data = None, target = None, s=0.25):
                 data = (data+img_mean)/255
                 data = seq(data)
                 data = (data*255-img_mean).float()
-    return data, target
+    return data
 
-def gaussian_blur(blur, data = None, target = None):
+def gaussian_blur(blur, data = None):
     if not (data is None):
         if data.shape[1]==3:
             if blur > 0.5:
@@ -97,7 +97,7 @@ def gaussian_blur(blur, data = None, target = None):
                 kernel_size = (kernel_size_y, kernel_size_x)
                 seq = nn.Sequential(kornia.filters.GaussianBlur2d(kernel_size=kernel_size, sigma=(sigma, sigma)))
                 data = seq(data)
-    return data, target
+    return data
 
 def flip(flip, data = None, target = None):
     #Flip

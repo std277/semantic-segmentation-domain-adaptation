@@ -417,7 +417,7 @@ def save_model(model, file_name):
 
 
 def load_model(model, file_name, device):
-    model.load_state_dict(torch.load(file_name, map_location=torch.device(device)))
+    model.load_state_dict(torch.load(file_name, map_location=torch.device(device), weights_only=True))
     return model
 
 
@@ -580,6 +580,17 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
                     target=torch.cat((src_masks[j].unsqueeze(0),trg_prediction[j].unsqueeze(0)))
                 )
 
+                image = colorJitter(
+                    colorJitter = random.uniform(0, 1),
+                    img_mean = torch.tensor(MEAN).to(device),
+                    data = image
+                )
+
+                image = gaussian_blur(
+                    blur = random.uniform(0, 1),
+                    data = image
+                )
+
                 mixed_images.append(image.squeeze(0))
                 mixed_masks.append(mask.squeeze(0))
 
@@ -599,6 +610,7 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
             #         title="Mixed produced data",
             #         show=True
             #     )
+            
 
             mixed_images = mixed_images.to(device)
             mixed_masks = mixed_masks.to(device)
