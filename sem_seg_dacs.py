@@ -685,16 +685,16 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
         cumulative_mIoU = 0.0
         count = 0
         val_mIoU = 0.0
+        val_loss = 0.0
 
         model.eval()
         ema_model.eval()
 
-        src_train_iter = iter(src_valloader)
-        trg_train_iter = iter(trg_valloader)
+        src_val_iter = iter(src_valloader)
 
         with torch.no_grad():
             for i in range(val_num_steps):
-                src_images, src_masks, src_boundaries = next(src_train_iter)
+                src_images, src_masks, src_boundaries = next(src_val_iter)
                 src_images, src_masks, src_boundaries = src_images.to(device), src_masks.to(device), src_boundaries.to(device)
 
             

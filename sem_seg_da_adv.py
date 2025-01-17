@@ -733,12 +733,11 @@ def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, 
         model_D1.eval()
         model_D2.eval()
 
-        src_train_iter = iter(src_valloader)
-        trg_train_iter = iter(trg_valloader)
+        src_val_iter = iter(src_valloader)
 
         with torch.no_grad():
             for i in range(val_num_steps):
-                src_images, src_masks, src_boundaries = next(src_train_iter)
+                src_images, src_masks, src_boundaries = next(src_val_iter)
                 src_images, src_masks, src_boundaries = src_images.to(device), src_masks.to(device), src_boundaries.to(device)
 
                 src_logits = model(src_images)
@@ -1066,12 +1065,11 @@ def train_single_level(model, model_D2, model_number, src_trainloader, trg_train
         model.eval()
         model_D2.eval()
 
-        src_train_iter = iter(src_valloader)
-        trg_train_iter = iter(trg_valloader)
+        src_val_iter = iter(src_valloader)
 
         with torch.no_grad():
             for i in range(val_num_steps):
-                src_images, src_masks, src_boundaries = next(src_train_iter)
+                src_images, src_masks, src_boundaries = next(src_val_iter)
                 src_images, src_masks, src_boundaries = src_images.to(device), src_masks.to(device), src_boundaries.to(device)
 
                 src_logits = model(src_images)
