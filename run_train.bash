@@ -75,8 +75,9 @@ python3 sem_seg_dacs.py \
     --horizontal_flip_augmentation \
     --shift_scale_rotate_augmentation \
     --grid_distortion_augmentation \
-    --color_jitter_augmentation \
-    --gaussian_blur_augmentation \
     --batch_size 6 \
     --patience 10 \
     --epochs 30
+
+    # --color_jitter_augmentation \
+    # --gaussian_blur_augmentation \
