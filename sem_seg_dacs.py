@@ -617,8 +617,8 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
                     target=torch.cat((src_masks[j].unsqueeze(0),trg_prediction[j].unsqueeze(0)))
                 )
 
-                image = image.squeeze(0).numpy().transpose((1, 2, 0))             
-                mask = mask.squeeze(0).numpy()
+                image = image.squeeze(0).cpu().numpy().transpose((1, 2, 0))             
+                mask = mask.squeeze(0).cpu().numpy()
 
                 transformation = transform(image=image, mask=mask)
                 image, mask = transformation['image'], transformation['mask']
