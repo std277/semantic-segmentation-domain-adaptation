@@ -18,13 +18,17 @@ class CrossEntropyLoss(nn.Module):
 
         return loss
 
-    def forward(self, score, target, balance_weights=[0.4, 1.0], sb_weights=1.0):
+    def forward(self, score, target, balance_weights=[0.4, 1.0], sb_weights=1.0, pixel_wise_weights = None):
 
         if not (isinstance(score, list) or isinstance(score, tuple)):
             return sb_weights * self._forward(score, target)
         else:
             if len(balance_weights) == len(score):
-                return sum([w * self._forward(x, target) for (w, x) in zip(balance_weights, score)])
+                loss = sum([w * self._forward(x, target) for (w, x) in zip(balance_weights, score)])
+                if pixel_wise_weights is not None:
+                    return torch.mean(loss * pixel_wise_weights)
+                else:
+                    return loss
             elif len(score) == 1:
                 return sb_weights * self._forward(score[0], target)
             else:

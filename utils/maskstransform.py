@@ -34,7 +34,8 @@ def generate_bernoulli_mask(img_size, sigma, p, seed=None):
     #Ns = gaussian_filter(N, sigma) # Smooth with a Gaussian
     # Compute threshold
     t = erfinv(p*2 - 1) * (2**0.5) * Ns.std() + Ns.mean()
-    return (Ns > t).astype(float) # Apply threshold and return'''
+    return (Ns > t).astype(float) # Apply threshold and return
+'''
 
 def generate_cow_mask(img_size, sigma, p, seed=None):
     np.random.seed(seed)
@@ -54,7 +55,8 @@ def generate_cloud_mask(img_size, sigma, p,seed=None):
     Ns_norm = (Ns-Ns.mean())/Ns.std()
     Ns_sharp = np.tanh(T*Ns_norm)
     Ns_normalised = (Ns_sharp - np.min(Ns_sharp))/np.ptp(Ns_sharp)
-    return Ns_normalised'''
+    return Ns_normalised
+'''
 
 def generate_class_mask(pred, classes):
     pred, classes = torch.broadcast_tensors(pred.unsqueeze(0), classes.unsqueeze(1).unsqueeze(2))
@@ -66,7 +68,8 @@ def generate_cow_class_mask(pred, classes, sigma, p,):
     pred = np.array(pred.cpu())
     for c in classes:
         N[pred==c] = generate_cow_mask(pred.shape,sigma,p)[pred==c]
-    return N'''
+    return N
+'''
 
 
 

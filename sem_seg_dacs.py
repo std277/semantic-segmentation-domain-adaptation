@@ -165,7 +165,7 @@ def parse_args():
         "--alpha",
         type=float,
         default=0.99,
-        help=f"Specify minimum alpha for ema model.",
+        help=f"Specify maximum alpha for ema model.",
     )
 
     parser.add_argument(
@@ -527,8 +527,15 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
 
             trg_max_probs, trg_prediction = torch.max(torch.softmax(trg_logits[-2], dim=1), dim=1)
 
+
+            unlabeled_weight = torch.sum(trg_max_probs.ge(0.968).long() == 1).item() / (np.size(np.array(trg_logits[-2].cpu())) * args.batch_size)
+            pixel_wise_weights = unlabeled_weight * torch.ones(trg_max_probs.shape).to(device)
+            ones_weights = torch.ones((pixel_wise_weights.shape)).to(device)
+
+
             mixed_images = []
             mixed_masks = []
+            weights = []
             for j in range(src_images.shape[0]):
                 classes = torch.unique(src_masks[j])
                 n_classes = classes.shape[0]
@@ -558,8 +565,18 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
                 mixed_masks.append(mask.squeeze(0))
 
 
+                _, weight = oneMix(
+                    mask=mix_mask,
+                    target=torch.cat((ones_weights[j].unsqueeze(0), pixel_wise_weights[j].unsqueeze(0)))
+                )
+
+                weights.append(weight)
+
+
             mixed_images = torch.stack(mixed_images)
             mixed_masks = torch.stack(mixed_masks)
+            weights = torch.stack(weights)
+
 
             mixed_boundaries = compute_boundaries(mixed_masks.cpu())
             
@@ -572,11 +589,12 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
             #         alpha=1.,
             #         title="Mixed produced data",
             #         show=True
-            #     )  
+            #     )
 
             mixed_images = mixed_images.to(device)
             mixed_masks = mixed_masks.to(device)
             mixed_boundaries = mixed_boundaries.to(device)
+            weights = weights.to(device)
 
 
             mixed_logits = model(mixed_images)
@@ -588,12 +606,14 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
                     mixed_logits[j] = F.interpolate(mixed_logits[j], size=(h, w), mode='bilinear', align_corners=False)
 
 
-            loss_s = criterion(mixed_logits[:-1], mixed_masks, balance_weights=[0.4, 1.0])
+
+
+            loss_s = criterion(mixed_logits[:-1], mixed_masks, balance_weights=[0.4, 1.0], pixel_wise_weights=weights)
             loss_b = bd_criterion(mixed_logits[-1], mixed_boundaries)
 
             filler = torch.ones_like(mixed_masks) * 255
             bd_label = torch.where(F.sigmoid(mixed_logits[-1][:,0,:,:])>0.8, mixed_masks, filler)
-            loss_sb = criterion(mixed_logits[-2], bd_label)
+            loss_sb = criterion(mixed_logits[-2], bd_label, pixel_wise_weights=weights)
             
             loss_unlabeled = loss_s + loss_b + loss_sb
 
@@ -609,8 +629,8 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
 
             # Update ema_model
             iteration = (train_num_steps * e + count)
-            alpha_min = args.alpha
-            alpha_teacher = min(1 - 1 / (iteration + 1), alpha_min)
+            alpha_max = args.alpha
+            alpha_teacher = min(1 - 1 / (iteration + 1), alpha_max)
             for ema_param, param in zip(ema_model.parameters(), model.parameters()):
                 ema_param.data[:] = alpha_teacher * ema_param[:].data[:] + (1 - alpha_teacher) * param[:].data[:]
 
