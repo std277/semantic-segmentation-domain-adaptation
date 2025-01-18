@@ -80,10 +80,6 @@ OLD:
 
 
 
-| VERSION | DATA AUG           | SRC DOMAIN | BATCH SIZE | CRITERION            | OPTIMIZER                                            | SCHEDULER                        | NUM_EPOCHS | mIoU (%) (Urban) | mIoU (%) (Rural) |
-|---------|--------------------|------------|------------|----------------------|------------------------------------------------------|----------------------------------|------------|------------------|------------------|
-| 0       | -                  | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005)    | PolynomialLR(lr=0.01, power=0.9) | 30         |             |             |
-
 
 Data augmentation:
 - CJ: Color Jitter
