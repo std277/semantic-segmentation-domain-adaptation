@@ -68,6 +68,7 @@ Model name: `PIDNet_S_DACS`
 
 Resizing: (512, 512)
 
+OLD:
 | VERSION | DATA AUG           | SRC DOMAIN | BATCH SIZE | CRITERION            | OPTIMIZER                                            | SCHEDULER                        | NUM_EPOCHS | mIoU (%) (Urban) | mIoU (%) (Rural) |
 |---------|--------------------|------------|------------|----------------------|------------------------------------------------------|----------------------------------|------------|------------------|------------------|
 | 0       | -                  | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005)    | PolynomialLR(lr=0.01, power=0.9) | 30         | 33.31            | 18.67            |
@@ -75,8 +76,13 @@ Resizing: (512, 512)
 | 2       | (CJ, GB)           | Urban      | 2          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005)    | PolynomialLR(lr=0.01, power=0.9) | 30         | 29.24            | 19.36            | 
 | 3       | (CJ, GB)           | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.001, momentum: 0.9 weight_decay: 0.0005)   | PolynomialLR(lr=0.01, power=0.9) | 30         | 33.33            | 20.59            | 
 | 4       | (CJ, GB)           | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.00025, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 30         | 31.00            | 20.43            | 
-| 5       | (CJ, GB)           | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.001, momentum: 0.9 weight_decay: 0.0005)   | PolynomialLR(lr=0.01, power=0.9) | 30         |             |             | (alpha=0.9)
+| 5       | (CJ, GB)           | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.001, momentum: 0.9 weight_decay: 0.0005)   | PolynomialLR(lr=0.01, power=0.9) | 30         | 32.26            | 19.63            | (alpha=0.9)
 
+
+
+| VERSION | DATA AUG           | SRC DOMAIN | BATCH SIZE | CRITERION            | OPTIMIZER                                            | SCHEDULER                        | NUM_EPOCHS | mIoU (%) (Urban) | mIoU (%) (Rural) |
+|---------|--------------------|------------|------------|----------------------|------------------------------------------------------|----------------------------------|------------|------------------|------------------|
+| 0       | -                  | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005)    | PolynomialLR(lr=0.01, power=0.9) | 30         |             |             |
 
 
 Data augmentation:
@@ -94,11 +100,6 @@ Standard deviation of inference time: 2.660 ms
 (Latencies computed on google colab with Tesla T4 GPU)
 
 
-
-Notes:
-- Training adversarial
-- Training with (alpha = 0.9)
-  
 
 Optional:
 - Fix OhemCrossEntropyLoss
