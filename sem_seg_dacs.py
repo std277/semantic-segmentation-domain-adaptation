@@ -642,16 +642,16 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
 
             mixed_boundaries = compute_boundaries(mixed_masks.cpu())
             
-            for image, mask, boundary in zip(mixed_images, mixed_masks, mixed_boundaries):
-                plot_dataset_entry(
-                    image.numpy(),
-                    mask.numpy(),
-                    boundary.numpy(),
-                    np_format=True,
-                    alpha=1.,
-                    title="Mixed produced data",
-                    show=True
-                )
+            # for image, mask, boundary in zip(mixed_images, mixed_masks, mixed_boundaries):
+            #     plot_dataset_entry(
+            #         image.numpy(),
+            #         mask.numpy(),
+            #         boundary.numpy(),
+            #         np_format=True,
+            #         alpha=1.,
+            #         title="Mixed produced data",
+            #         show=True
+            #     )
 
             mixed_images = mixed_images.to(device)
             mixed_masks = mixed_masks.to(device)
