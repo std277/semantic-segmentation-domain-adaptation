@@ -650,8 +650,6 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
 
                 mask = mask.long()
 
-                print(np.all(mask.numpy() == tmp_mask))
-
                 mixed_images.append(image)
                 mixed_masks.append(mask)
 
