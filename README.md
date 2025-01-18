@@ -71,12 +71,10 @@ Resizing: (512, 512)
 | VERSION | DATA AUG           | SRC DOMAIN | BATCH SIZE | CRITERION            | OPTIMIZER                                           | SCHEDULER                        | NUM_EPOCHS | mIoU (%) (Urban) | mIoU (%) (Rural) |
 |---------|--------------------|------------|------------|----------------------|-----------------------------------------------------|----------------------------------|------------|------------------|------------------|
 | 0       | -                  | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005)   | PolynomialLR(lr=0.01, power=0.9) | 30         | 33.31            | 18.67            |
-| 1       | (CJ, GB)           | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005)   | PolynomialLR(lr=0.01, power=0.9) | 30         |             |             | 
+| 1       | (CJ, GB)           | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005)   | PolynomialLR(lr=0.01, power=0.9) | 30         | 30.35            | 20.34            | 
 | 2       | (CJ, GB)           | Urban      | 2          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005)   | PolynomialLR(lr=0.01, power=0.9) | 30         | 29.24            | 19.36            | 
 | 3       | (CJ, GB)           | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.001, momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.01, power=0.9) | 30         |             |             | 
 
-
-| 0T       | -                  | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 45         | 34.72            | 17.37            | (LONGER TRAINING)
 
 
 Data augmentation:
@@ -97,10 +95,8 @@ Standard deviation of inference time: 2.660 ms
 
 Notes:
 - Training adversarial
-- Training DACS with data augmentation
+- Training DACS with lr=0.001 (0.00025) 
 
-Next steps:
-- Try lower learning rate like in the paper (0.00025) 
 
 Optional:
 - Fix OhemCrossEntropyLoss
