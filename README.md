@@ -74,7 +74,8 @@ Resizing: (512, 512)
 | 1       | (CJ, GB)           | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005)    | PolynomialLR(lr=0.01, power=0.9) | 30         | 30.35            | 20.34            | 
 | 2       | (CJ, GB)           | Urban      | 2          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005)    | PolynomialLR(lr=0.01, power=0.9) | 30         | 29.24            | 19.36            | 
 | 3       | (CJ, GB)           | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.001, momentum: 0.9 weight_decay: 0.0005)   | PolynomialLR(lr=0.01, power=0.9) | 30         | 33.33            | 20.59            | 
-| 4       | (CJ, GB)           | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.00025, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 30         |             |             | 
+| 4       | (CJ, GB)           | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.00025, momentum: 0.9 weight_decay: 0.0005) | PolynomialLR(lr=0.01, power=0.9) | 30         | 31.00            | 20.43            | 
+| 5       | (CJ, GB)           | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.001, momentum: 0.9 weight_decay: 0.0005)   | PolynomialLR(lr=0.01, power=0.9) | 30         | 33.33            | 20.59            | (alpha=0.9)
 
 
 
@@ -96,7 +97,6 @@ Standard deviation of inference time: 2.660 ms
 
 Notes:
 - Training adversarial
-- Try differend alpha values in DACS (--alpha)
 
 Optional:
 - Fix OhemCrossEntropyLoss
