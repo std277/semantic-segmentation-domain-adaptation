@@ -556,17 +556,19 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
 
             mixed_boundaries = compute_boundaries(mixed_masks.cpu())
             
-            # for image, mask, boundary in zip(mixed_images, mixed_masks, mixed_boundaries):
-            #     plot_dataset_entry(
-            #         image.numpy(),
-            #         mask.numpy(),
-            #         boundary.numpy(),
-            #         np_format=True,
-            #         alpha=1.,
-            #         title="Mixed produced data",
-            #         show=True
-            #     )
+            for image, mask, boundary in zip(mixed_images, mixed_masks, mixed_boundaries):
+                plot_dataset_entry(
+                    image.numpy(),
+                    mask.numpy(),
+                    boundary.numpy(),
+                    np_format=True,
+                    alpha=1.,
+                    title="Mixed produced data",
+                    show=True
+                )
             
+            exit()
+
 
             mixed_images = mixed_images.to(device)
             mixed_masks = mixed_masks.to(device)
@@ -603,7 +605,8 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
 
             # Update ema_model
             iteration = (train_num_steps * e + count)
-            alpha_teacher = min(1 - 1 / (iteration + 1), 0.99)
+            alpha_min = 0.99
+            alpha_teacher = min(1 - 1 / (iteration + 1), alpha_min)
             for ema_param, param in zip(ema_model.parameters(), model.parameters()):
                 ema_param.data[:] = alpha_teacher * ema_param[:].data[:] + (1 - alpha_teacher) * param[:].data[:]
 

@@ -79,7 +79,7 @@ def colorJitter(colorJitter, img_mean, data = None, s=0.25):
     # colorJitter
     if not (data is None):
         if data.shape[1]==3:
-            if colorJitter > 0.2:
+            if colorJitter > 0.5:
                 img_mean, _ = torch.broadcast_tensors(img_mean.unsqueeze(0).unsqueeze(2).unsqueeze(3), data)
                 seq = nn.Sequential(kornia.augmentation.ColorJitter(brightness=s,contrast=s,saturation=s,hue=s))
                 data = (data+img_mean)/255
