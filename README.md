@@ -82,9 +82,8 @@ OLD:
 | VERSION | DATA AUG           | SRC DOMAIN | BATCH SIZE | CRITERION            | OPTIMIZER                                            | SCHEDULER                        | NUM_EPOCHS | mIoU (%) (Urban) | mIoU (%) (Rural) |
 |---------|--------------------|------------|------------|----------------------|------------------------------------------------------|----------------------------------|------------|------------------|------------------|
 | 0       | -                  | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005)    | PolynomialLR(lr=0.01, power=0.9) | 30         | 33.31            | 18.67            |
-| 1       | (CJ, GB)           | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.01, momentum: 0.9 weight_decay: 0.0005)    | PolynomialLR(lr=0.01, power=0.9) | 30         | 30.35            | 20.34            | 
-| 2       | (CJ, GB)           | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.001, momentum: 0.9 weight_decay: 0.0005)   | PolynomialLR(lr=0.01, power=0.9) | 30         | 33.33            | 20.59            | 
-| 3       | (HF, SSR, GD)      | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.001, momentum: 0.9 weight_decay: 0.0005)   | PolynomialLR(lr=0.01, power=0.9) | 30         |             |             | 
+| 1       | (HF, SSR, GD)      | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.001, momentum: 0.9 weight_decay: 0.0005)   | PolynomialLR(lr=0.01, power=0.9) | 30         |             |             | 
+| 2       | (CJ, GB)           | Urban      | 6          | CrossEntropyLoss     | SGD(lr: 0.001, momentum: 0.9 weight_decay: 0.0005)   | PolynomialLR(lr=0.01, power=0.9) | 30         |             |             | 
 
 
 Data augmentation:
