@@ -97,6 +97,8 @@ Standard deviation of inference time: 2.660 ms
 
 Notes:
 - Training adversarial
+- Training with (alpha = 0.9)
+  
 
 Optional:
 - Fix OhemCrossEntropyLoss
