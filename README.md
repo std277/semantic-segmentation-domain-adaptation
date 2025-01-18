@@ -96,7 +96,7 @@ Standard deviation of inference time: 2.660 ms
 
 Notes:
 - Training adversarial
-- Try differend alpha values in DACS
+- Try differend alpha values in DACS (--alpha)
 
 Optional:
 - Fix OhemCrossEntropyLoss
