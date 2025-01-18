@@ -620,15 +620,17 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
             mixed_images = []
             mixed_masks = []
             weights = []
+            
+            mix_mask_selectors = [] # ADDED
 
             for j in range(src_images.shape[0]):
                 classes = torch.unique(src_masks[j])
                 n_classes = classes.shape[0]
                 classes = (classes[torch.Tensor(np.random.choice(n_classes, int((n_classes + n_classes%2)/2),replace=False)).long()]).to(device)
-                mix_mask = generate_class_mask(src_masks[j], classes).unsqueeze(0).to(device)
-                
+                mix_mask_selector = generate_class_mask(src_masks[j], classes).unsqueeze(0).to(device)
+
                 image, mask = oneMix(
-                    mask=mix_mask,
+                    mask=mix_mask_selector,
                     data=torch.cat((src_images[j].unsqueeze(0), trg_images[j].unsqueeze(0))),
                     target=torch.cat((src_masks[j].unsqueeze(0),trg_prediction[j].unsqueeze(0)))
                 )
@@ -644,19 +646,22 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
                 mixed_masks.append(mask)
 
                 _, weight = oneMix(
-                    mask=mix_mask,
+                    mask=mix_mask_selector,
                     target=torch.cat((ones_weights[j].unsqueeze(0), pixel_wise_weights[j].unsqueeze(0)))
                 )
 
                 weights.append(weight.squeeze(0))
+                mix_mask_selectors.append(mix_mask_selector.squeeze(0)) # ADDED
 
 
             mixed_images = torch.stack(mixed_images)
             mixed_masks = torch.stack(mixed_masks)
             weights = torch.stack(weights)
+            mix_mask_selectors = torch.stack(mix_mask_selectors) # ADDED
 
 
-            mixed_boundaries = compute_boundaries(mixed_masks.cpu())
+            mixed_boundaries = compute_boundaries(mix_mask_selectors.cpu()) # ADDED
+            # mixed_boundaries = compute_boundaries(mixed_masks.cpu()) # REMOVED
             
             # for image, mask, boundary in zip(mixed_images, mixed_masks, mixed_boundaries):
             #     plot_dataset_entry(
