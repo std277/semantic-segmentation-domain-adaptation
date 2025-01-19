@@ -441,7 +441,7 @@ def dataset_preprocessing(domain, batch_size, data_augmentation, args):
         transform_list = []
         if args.model_name == "DeepLabV2_ResNet101":
             transform_list.append(Resize(512, 512))
-        transform_list.append(Normalize(mean=MEAN, std=STD, max_pixel_value=1, always_apply=True))
+        transform_list.append(Normalize(mean=MEAN, std=STD, always_apply=True))
 
         if args.horizontal_flip_augmentation:
             transform_list.append(HorizontalFlip(p=0.5))
@@ -466,12 +466,12 @@ def dataset_preprocessing(domain, batch_size, data_augmentation, args):
         if args.model_name == "DeepLabV2_ResNet101":
             transform = Compose([
                 Resize(512, 512),
-                Normalize(mean=MEAN, std=STD, max_pixel_value=1, always_apply=True),
+                Normalize(mean=MEAN, std=STD, always_apply=True),
                 ToTensorV2()
             ])
         else:
             transform = Compose([
-                Normalize(mean=MEAN, std=STD, max_pixel_value=1, always_apply=True),
+                Normalize(mean=MEAN, std=STD, always_apply=True),
                 ToTensorV2()
             ])
 
