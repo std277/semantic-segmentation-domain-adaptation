@@ -482,17 +482,26 @@ def dataset_preprocessing(domain, batch_size, data_augmentation, args):
     return trainloader, valloader, testloader
 
 
-def get_model(model_name, device):
-    if model_name == "DeepLabV2_ResNet101":
+def get_model(args, device):
+    if args.model_name == "DeepLabV2_ResNet101":
         model = DeepLabV2_ResNet101(num_classes=NUM_CLASSES, pretrain=True, pretrain_model_path='./weights_pretrained/deeplab_resnet_pretrained_imagenet.pth')
-    elif model_name == "PIDNet_S":
-        model = PIDNet_S(num_classes=NUM_CLASSES, pretrain=True, pretrain_model_path="./weights_pretrained/pidnet_s_pretrained_imagenet.pth")
-    elif model_name == "PIDNet_M":
-        model = PIDNet_M(num_classes=NUM_CLASSES, pretrain=True, pretrain_model_path="./weights_pretrained/pidnet_m_pretrained_imagenet.pth")
-    elif model_name == "PIDNet_L":
-        model = PIDNet_L(num_classes=NUM_CLASSES, pretrain=True, pretrain_model_path="./weights_pretrained/pidnet_l_pretrained_imagenet.pth")
+    elif args.model_name == "PIDNet_S":
+        if args.train:
+            model = PIDNet_S(num_classes=NUM_CLASSES, pretrain=True, pretrain_model_path="./weights_pretrained/pidnet_s_pretrained_imagenet.pth")
+        else:
+            model = PIDNet_S(num_classes=NUM_CLASSES, pretrain=True, pretrain_model_path="./weights_pretrained/pidnet_s_pretrained_imagenet.pth", augment=False)
+    elif args.model_name == "PIDNet_M":
+        if args.train:
+            model = PIDNet_M(num_classes=NUM_CLASSES, pretrain=True, pretrain_model_path="./weights_pretrained/pidnet_m_pretrained_imagenet.pth")
+        else:
+            model = PIDNet_M(num_classes=NUM_CLASSES, pretrain=True, pretrain_model_path="./weights_pretrained/pidnet_m_pretrained_imagenet.pth", augment=False)
+    elif args.model_name == "PIDNet_L":
+        if args.train:
+            model = PIDNet_L(num_classes=NUM_CLASSES, pretrain=True, pretrain_model_path="./weights_pretrained/pidnet_l_pretrained_imagenet.pth")
+        else:
+            model = PIDNet_L(num_classes=NUM_CLASSES, pretrain=True, pretrain_model_path="./weights_pretrained/pidnet_l_pretrained_imagenet.pth", augment=False)
     else:
-        raise Exception(f"Model {model_name} doesn't exist")
+        raise Exception(f"Model {args.model_name} doesn't exist")
 
     model = model.to(device)
 
@@ -971,12 +980,9 @@ def test(model_name, model, valloader, device, monitor):
                 end_time = time.perf_counter()
 
                 h, w = masks.size(1), masks.size(2)
-                ph, pw = logits[0].size(2), logits[0].size(3)
+                ph, pw = logits.size(1), logits.size(2)
                 if ph != h or pw != w:
-                    for j in range(len(logits)):
-                        logits[j] = F.interpolate(logits[j], size=(h, w), mode='bilinear', align_corners=False)
-
-                logits = logits[-2]
+                    logits = F.interpolate(logits, size=(h, w), mode='bilinear', align_corners=False)
 
             batch_inference_time = (end_time - start_time) / images.size(0)
             inference_times.append(batch_inference_time)
@@ -1032,12 +1038,9 @@ def predict(model_name, model, valloader, device):
             elif model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
                 logits = model(images)
                 h, w = masks.size(1), masks.size(2)
-                ph, pw = logits[0].size(2), logits[0].size(3)
+                ph, pw = logits.size(1), logits.size(2)
                 if ph != h or pw != w:
-                    for j in range(len(logits)):
-                        logits[j] = F.interpolate(logits[j], size=(h, w), mode='bilinear', align_corners=False)
-
-                logits = logits[-2]
+                    logits = F.interpolate(logits, size=(h, w), mode='bilinear', align_corners=False)
 
             predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
             
@@ -1086,7 +1089,7 @@ def main():
         
         # inspect_dataset(trainloader, valloader)
 
-        model = get_model(args.model_name, device)
+        model = get_model(args, device)
 
         model_number = get_model_number(res_dir)
         if args.resume:
@@ -1151,7 +1154,7 @@ def main():
             args=args
         )
 
-        model = get_model(args.model_name, device)
+        model = get_model(args, device)
         model = load_model(model, f"{res_dir}/weights/{args.model_file}", device)
 
         log_testing_setup(device, args, test_monitor)
@@ -1175,7 +1178,7 @@ def main():
             args=args
         )
 
-        model = get_model(args.model_name, device)
+        model = get_model(args, device)
         model = load_model(model, f"{res_dir}/weights/{args.model_file}", device)
 
         predict(

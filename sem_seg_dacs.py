@@ -411,13 +411,22 @@ def get_transform(args):
 
 def get_model(args, device):
     if args.model_name == "PIDNet_S":
-        model = PIDNet_S(num_classes=NUM_CLASSES, pretrain=True, pretrain_model_path="./weights_pretrained/pidnet_s_pretrained_imagenet.pth")
+        if args.train:
+            model = PIDNet_S(num_classes=NUM_CLASSES, pretrain=True, pretrain_model_path="./weights_pretrained/pidnet_s_pretrained_imagenet.pth")
+        else:
+            model = PIDNet_S(num_classes=NUM_CLASSES, pretrain=True, pretrain_model_path="./weights_pretrained/pidnet_s_pretrained_imagenet.pth", augment=False)
         ema_model = PIDNet_S(num_classes=NUM_CLASSES, pretrain=False)
     elif args.model_name == "PIDNet_M":
-        model = PIDNet_M(num_classes=NUM_CLASSES, pretrain=True, pretrain_model_path="./weights_pretrained/pidnet_m_pretrained_imagenet.pth")
+        if args.train:
+            model = PIDNet_M(num_classes=NUM_CLASSES, pretrain=True, pretrain_model_path="./weights_pretrained/pidnet_m_pretrained_imagenet.pth")
+        else:
+            model = PIDNet_M(num_classes=NUM_CLASSES, pretrain=True, pretrain_model_path="./weights_pretrained/pidnet_m_pretrained_imagenet.pth", augment=False)
         ema_model = PIDNet_M(num_classes=NUM_CLASSES, pretrain=False)
     elif args.model_name == "PIDNet_L":
-        model = PIDNet_L(num_classes=NUM_CLASSES, pretrain=True, pretrain_model_path="./weights_pretrained/pidnet_l_pretrained_imagenet.pth")
+        if args.train:
+            model = PIDNet_L(num_classes=NUM_CLASSES, pretrain=True, pretrain_model_path="./weights_pretrained/pidnet_l_pretrained_imagenet.pth")
+        else:
+            model = PIDNet_L(num_classes=NUM_CLASSES, pretrain=True, pretrain_model_path="./weights_pretrained/pidnet_l_pretrained_imagenet.pth", augment=False)
         ema_model = PIDNet_L(num_classes=NUM_CLASSES, pretrain=False)
     else:
         raise Exception(f"Model {args.model_name} doesn't exist")
@@ -929,16 +938,15 @@ def test(model, valloader, device, monitor):
             end_time = time.perf_counter()
 
             h, w = masks.size(1), masks.size(2)
-            ph, pw = logits[0].size(2), logits[0].size(3)
+            ph, pw = logits.size(1), logits.size(2)
             if ph != h or pw != w:
-                for j in range(len(logits)):
-                    logits[j] = F.interpolate(logits[j], size=(h, w), mode='bilinear', align_corners=False)
+                logits = F.interpolate(logits, size=(h, w), mode='bilinear', align_corners=False)
 
 
             batch_inference_time = (end_time - start_time) / images.size(0)
             inference_times.append(batch_inference_time)
 
-            predictions = torch.argmax(torch.softmax(logits[-2], dim=1), dim=1)
+            predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
             
             count += 1
 
@@ -988,12 +996,11 @@ def predict(model, valloader, device):
 
             logits = model(images)
             h, w = masks.size(1), masks.size(2)
-            ph, pw = logits[0].size(2), logits[0].size(3)
+            ph, pw = logits.size(1), logits.size(2)
             if ph != h or pw != w:
-                for j in range(len(logits)):
-                    logits[j] = F.interpolate(logits[j], size=(h, w), mode='bilinear', align_corners=False)
+                logits = F.interpolate(logits, size=(h, w), mode='bilinear', align_corners=False)
 
-            predictions = torch.argmax(torch.softmax(logits[-2], dim=1), dim=1)
+            predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
             
             mIoU, iou_per_class = compute_mIoU(predictions, masks, NUM_CLASSES)
 
