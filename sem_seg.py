@@ -440,7 +440,7 @@ def dataset_preprocessing(domain, batch_size, data_augmentation, args):
     if data_augmentation:
         transform_list = []
         transform_list.append(Resize(512, 512))
-        transform_list.append(Normalize(mean=MEAN, std=STD))
+        transform_list.append(Normalize(mean=(), std=()))
 
         if args.horizontal_flip_augmentation:
             transform_list.append(HorizontalFlip(p=0.5))
@@ -464,7 +464,7 @@ def dataset_preprocessing(domain, batch_size, data_augmentation, args):
     else:
         transform = Compose([
             Resize(512, 512),
-            Normalize(mean=MEAN, std=STD),
+            Normalize(mean=(), std=()),
             ToTensorV2()
         ])
 
