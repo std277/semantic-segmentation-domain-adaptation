@@ -19,7 +19,7 @@ from torch.optim.lr_scheduler import LambdaLR, StepLR, CosineAnnealingLR
 from torch.backends import cudnn
 from torch.amp import GradScaler, autocast
 
-from albumentations import Compose, Resize, Normalize, HorizontalFlip, VerticalFlip, RandomRotate90, ShiftScaleRotate, RandomBrightnessContrast, CoarseDropout, GridDistortion
+from albumentations import Compose, Resize, Normalize, HorizontalFlip, VerticalFlip, RandomRotate90, ShiftScaleRotate, RandomBrightnessContrast, CoarseDropout, GridDistortion, GaussianBlur, ColorJitter, RandomCrop
 from albumentations.pytorch import ToTensorV2
 
 from fvcore.nn import FlopCountAnalysis, flop_count_table
@@ -155,6 +155,24 @@ def parse_args():
         "--grid_distortion_augmentation",
         action="store_true",
         help="Performs grid distortion data augmentation on dataset."
+    )
+
+    parser.add_argument(
+        "--color_jitter_augmentation",
+        action="store_true",
+        help="Performs color jitter data augmentation on dataset."
+    )
+
+    parser.add_argument(
+        "--gaussian_blur_augmentation",
+        action="store_true",
+        help="Performs gaussian blur data augmentation on dataset."
+    )
+
+    parser.add_argument(
+        "--random_crop_augmentation",
+        action="store_true",
+        help="Performs random crop data augmentation on dataset."
     )
 
     parser.add_argument(
@@ -335,17 +353,24 @@ def log_training_setup(device, args, monitor):
         monitor.log(f"Cuda device name: {device_name}")
 
     data_augmentation = args.horizontal_flip_augmentation or args.shift_scale_rotate_augmentation or args.brightness_contrast_augmentation or args.coarse_dropout_augmentation or args.grid_distortion_augmentation
+    
     monitor.log(f"Data augmentation: {data_augmentation}")
     if args.horizontal_flip_augmentation:
-        monitor.log(f"- HorizontalFlip(p=0.5)")
+        monitor.log("- HorizontalFlip(p=0.5)")
     if args.shift_scale_rotate_augmentation:
-        monitor.log(f"- ShiftScaleRotate(shift_limit=0.1, scale_limit=0.2, rotate_limit=15, p=0.5)")
+        monitor.log("- ShiftScaleRotate(shift_limit=0.1, scale_limit=0.2, rotate_limit=15, p=0.5)")
     if args.brightness_contrast_augmentation:
-        monitor.log(f"- RandomBrightnessContrast(p=0.5)")
+        monitor.log("- RandomBrightnessContrast(p=0.5)")
     if args.coarse_dropout_augmentation:
-        monitor.log(f"- CoarseDropout(max_holes=8, max_height=32, max_width=32, p=0.5)")
+        monitor.log("- CoarseDropout(max_holes=8, max_height=32, max_width=32, p=0.5)")
     if args.grid_distortion_augmentation:
-        monitor.log(f"- GridDistortion(num_steps=5, distort_limit=0.3, p=0.5)")
+        monitor.log("- GridDistortion(num_steps=5, distort_limit=0.3, p=0.5)")
+    if args.color_jitter_augmentation:
+        monitor.log("- ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1, p=0.5)")
+    if args.gaussian_blur_augmentation:
+        monitor.log("- GaussianBlur(blur_limit=(3, 7), p=0.5)")
+    if args.random_crop_augmentation:
+        monitor.log("- RandomCrop(width=720, height=720, p=0.5)")
 
     monitor.log(f"Batch size: {args.batch_size}\n")
 
@@ -379,6 +404,12 @@ def dataset_preprocessing(domain, batch_size, data_augmentation, args):
             transform_list.append(CoarseDropout(max_holes=8, max_height=32, max_width=32, p=0.5))
         if args.grid_distortion_augmentation:
             transform_list.append(GridDistortion(num_steps=5, distort_limit=0.3, p=0.5))
+        if args.color_jitter_augmentation:
+            transform_list.append(ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1, p=0.5))
+        if args.gaussian_blur_augmentation:
+            transform_list.append(GaussianBlur(blur_limit=(3, 7), p=0.5))
+        if args.random_crop_augmentation:
+            transform_list.append(RandomCrop(width=720, height=720, p=0.5))
 
         transform_list.append(ToTensorV2())
 
