@@ -9,8 +9,8 @@ import torch
 from torch.utils.data import Dataset
 
 NUM_CLASSES = 7
-MEAN = (0.485, 0.456, 0.406)
-STD = (0.229, 0.224, 0.225)
+MEAN = (123.675, 116.28, 103.53)
+STD = (58.395, 57.12, 57.375)
 
 class LoveDADatasetLabel(Enum):
     BACKGROUND = 0
