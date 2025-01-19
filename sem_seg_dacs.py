@@ -367,7 +367,7 @@ def log_testing_setup(device, args, monitor):
 def dataset_preprocessing(domain, batch_size):
     
     transform = Compose([
-        Resize(512, 512),
+        # Resize(512, 512),
         Normalize(mean=MEAN, std=STD),
         ToTensorV2()
     ])

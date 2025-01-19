@@ -366,7 +366,7 @@ def dataset_preprocessing(domain, batch_size, data_augmentation, args):
     # Define transforms
     if data_augmentation:
         transform_list = []
-        transform_list.append(Resize(512, 512))
+        # transform_list.append(Resize(512, 512))
         transform_list.append(Normalize(mean=MEAN, std=STD))
 
         if args.horizontal_flip_augmentation:

@@ -439,7 +439,8 @@ def dataset_preprocessing(domain, batch_size, data_augmentation, args):
     # Define transforms
     if data_augmentation:
         transform_list = []
-        transform_list.append(Resize(512, 512))
+        if args.model_name == "DeepLabV2_ResNet101":
+            transform_list.append(Resize(512, 512))
         transform_list.append(Normalize(mean=MEAN, std=STD, max_pixel_value=1, always_apply=True))
 
         if args.horizontal_flip_augmentation:
@@ -462,11 +463,17 @@ def dataset_preprocessing(domain, batch_size, data_augmentation, args):
         transform = Compose(transform_list)
 
     else:
-        transform = Compose([
-            Resize(512, 512),
-            Normalize(mean=MEAN, std=STD, max_pixel_value=1, always_apply=True),
-            ToTensorV2()
-        ])
+        if args.model_name == "DeepLabV2_ResNet101":
+            transform = Compose([
+                Resize(512, 512),
+                Normalize(mean=MEAN, std=STD, max_pixel_value=1, always_apply=True),
+                ToTensorV2()
+            ])
+        else:
+            transform = Compose([
+                Normalize(mean=MEAN, std=STD, max_pixel_value=1, always_apply=True),
+                ToTensorV2()
+            ])
 
     # Define the Dataset object for training, validation and testing
     traindataset = LoveDADataset(dataset_type="Train", domain=domain, transform=transform, root_dir='data')
