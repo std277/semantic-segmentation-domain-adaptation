@@ -14,9 +14,9 @@
 python3 sem_seg.py \
     --predict \
     --model_name PIDNet_S \
-    --version 5 \
-    --model_file best_0.pt \
-    --target_domain Urban
+    --version 2 \
+    --model_file best_1.pt \
+    --target_domain Rural
 
 
 

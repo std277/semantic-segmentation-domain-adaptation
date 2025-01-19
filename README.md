@@ -21,9 +21,11 @@ Model name: `PIDNet_S`
 | VERSION | DATA AUG           | SRC DOMAIN | BATCH SIZE | CRITERION            | OPTIMIZER                                | SCHEDULER                           | NUM_EPOCHS | mIoU (%) (Urban) | mIoU (%) (Rural) |
 |---------|--------------------|------------|------------|----------------------|------------------------------------------|-------------------------------------|------------|------------------|------------------|
 | 0       | -                  | Rural      | 6          | OhemCrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.01, power=0.9)    | 20         | 39.31            | 31.12            |
-| 1       | -                  | Urban      | 6          | OhemCrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.01, power=0.9)    | 20         |             |             |
-| 2       | -                  | Rural      | 6          | OhemCrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9)   | 20         |             |             |
-| 3       | -                  | Urban      | 6          | OhemCrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9)   | 20         |             |             |
+| 1       | -                  | Urban      | 6          | OhemCrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.01, power=0.9)    | 20         | 35.29            | 23.52            |
+| 2       | -                  | Rural      | 6          | OhemCrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9)   | 20         | 41.97            | 33.16            |
+| 3       | -                  | Urban      | 6          | OhemCrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9)   | 20         | 39.24            | 25.44            |
+| 4       | (HF, SSR)          | Urban      | 6          | OhemCrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9)   | 20         |             |             |
+| 5       | (HF, SSR, GD)      | Urban      | 6          | OhemCrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9)   | 20         |             |             |
 
 Data augmentation:
 - HF: Horizontal Flip
