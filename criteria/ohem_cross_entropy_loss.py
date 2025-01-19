@@ -18,10 +18,10 @@ class OhemCrossEntropyLoss(nn.Module):
 
     def _ce_forward(self, score, target):
         loss = self.criterion(score, target)
-        return loss
+        return loss.mean()
 
     def _ohem_forward(self, score, target, **kwargs):
-
+        
         pred = F.softmax(score, dim=1)
         pixel_losses = self.criterion(score, target).contiguous().view(-1)
         mask = target.contiguous().view(-1) != self.ignore_label
@@ -40,11 +40,11 @@ class OhemCrossEntropyLoss(nn.Module):
     def forward(self, score, target, balance_weights=[0.4, 1.0], sb_weights=1.0):
         
         if not (isinstance(score, list) or isinstance(score, tuple)):
-            score = [score]
             return sb_weights * self._ohem_forward(score, target)
         else:
             if len(balance_weights) == len(score):
                 functions = [self._ce_forward] * (len(balance_weights) - 1) + [self._ohem_forward]
-                return sum([w * func(x, target) for (w, x, func) in zip(balance_weights, score, functions)])
+                loss = sum([w * func(x, target) for (w, x, func) in zip(balance_weights, score, functions)])
+                return loss
             else:
-                raise ValueError("lengths of prediction and target are not identical!")
+                raise ValueError("Lengths of prediction and target are not identical!")

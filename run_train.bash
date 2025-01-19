@@ -43,7 +43,7 @@ python3 sem_seg.py \
     --version 0 \
     --source_domain Rural \
     --batch_size 6 \
-    --criterion CrossEntropyLoss \
+    --criterion OhemCrossEntropyLoss \
     --optimizer SGD \
     --scheduler PolynomialLR \
     --epochs 20

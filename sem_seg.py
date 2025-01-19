@@ -816,6 +816,8 @@ def train_pidnet(model, model_number, trainloader, valloader, criterion, bd_crit
             
             loss = loss_s + loss_b + loss_sb
 
+            # loss.unsqueeze(0)
+
             loss.backward()
 
             # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
