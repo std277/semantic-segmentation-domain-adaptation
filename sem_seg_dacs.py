@@ -829,7 +829,7 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
         monitor.stop()
 
 
-        if (best_val_loss is None and best_val_mIoU is None) or val_loss < best_val_loss or val_mIoU < best_val_mIoU:
+        if (best_val_loss is None and best_val_mIoU is None) or val_loss < best_val_loss or val_mIoU > best_val_mIoU:
             save_model(model, f"{res_dir}/weights/best_{model_number}.pt")
             monitor.log(f"Model saved as best_{model_number}.pt\n")
             best_val_loss = val_loss

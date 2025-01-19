@@ -796,7 +796,7 @@ def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, 
         monitor.stop()
 
 
-        if (best_val_loss is None and best_val_mIoU is None) or val_loss < best_val_loss or val_mIoU < best_val_mIoU:
+        if (best_val_loss is None and best_val_mIoU is None) or val_loss < best_val_loss or val_mIoU > best_val_mIoU:
             save_model(model, f"{res_dir}/weights/best_{model_number}.pt")
             save_model(model_D1, f"{res_dir}/weights/best_D1_{model_number}.pt")
             save_model(model_D2, f"{res_dir}/weights/best_D2_{model_number}.pt")
@@ -1131,7 +1131,7 @@ def train_single_level(model, model_D2, model_number, src_trainloader, trg_train
         monitor.stop()
 
 
-        if (best_val_loss is None and best_val_mIoU is None) or val_loss < best_val_loss or val_mIoU < best_val_mIoU:
+        if (best_val_loss is None and best_val_mIoU is None) or val_loss < best_val_loss or val_mIoU > best_val_mIoU:
             save_model(model, f"{res_dir}/weights/best_{model_number}.pt")
             save_model(model_D2, f"{res_dir}/weights/best_D2_{model_number}.pt")
             monitor.log(f"Model saved as best_{model_number}.pt\n")
