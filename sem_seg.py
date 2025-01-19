@@ -192,7 +192,7 @@ def parse_args():
         "--criterion",
         type=str,
         choices=criteria_choices,
-        default="CrossEntropyLoss",
+        default="OhemCrossEntropyLoss",
         help=f"Specify the criterion.",
     )
 
@@ -529,7 +529,7 @@ def get_criterion(args):
     if args.criterion == "CrossEntropyLoss":
         criterion = CrossEntropyLoss(ignore_label=255)
     elif args.criterion == "OhemCrossEntropyLoss":
-        criterion = OhemCrossEntropyLoss(ignore_label=255, thres=0.9, min_kept=131072)
+        criterion = OhemCrossEntropyLoss(ignore_label=255)
     else:
         raise Exception(f"Criterion {args.criterion} doesn't exist")
     

@@ -5,8 +5,7 @@ from torch.nn import functional as F
 
 
 class OhemCrossEntropyLoss(nn.Module):
-    def __init__(self, ignore_label=255, thres=0.7,
-                 min_kept=100000, weight=None):
+    def __init__(self, ignore_label=255, thres=0.9, min_kept=131072, weight=None):
         super(OhemCrossEntropyLoss, self).__init__()
         self.thresh = thres
         self.min_kept = max(1, min_kept)
@@ -18,13 +17,10 @@ class OhemCrossEntropyLoss(nn.Module):
         )
 
     def _ce_forward(self, score, target):
-
-
         loss = self.criterion(score, target)
-
         return loss
 
-    def _ohem_forward(self, score, target):
+    def _ohem_forward(self, score, target, **kwargs):
 
         pred = F.softmax(score, dim=1)
         pixel_losses = self.criterion(score, target).contiguous().view(-1)
@@ -42,16 +38,13 @@ class OhemCrossEntropyLoss(nn.Module):
         return pixel_losses.mean()
 
     def forward(self, score, target, balance_weights=[0.4, 1.0], sb_weights=1.0):
-        if len(balance_weights) == len(score):
-            functions = [self._ce_forward] * \
-                (len(balance_weights) - 1) + [self._ohem_forward]
-            return sum([
-                w * func(x, target)
-                for (w, x, func) in zip(balance_weights, score, functions)
-            ])
         
-        elif len(score) == 1:
-            return sb_weights * self._ohem_forward(score[0], target)
-        
+        if not (isinstance(score, list) or isinstance(score, tuple)):
+            score = [score]
+            return sb_weights * self._ohem_forward(score, target)
         else:
-            raise ValueError("Lengths of prediction and target are not identical!")
+            if len(balance_weights) == len(score):
+                functions = [self._ce_forward] * (len(balance_weights) - 1) + [self._ohem_forward]
+                return sum([w * func(x, target) for (w, x, func) in zip(balance_weights, score, functions)])
+            else:
+                raise ValueError("lengths of prediction and target are not identical!")

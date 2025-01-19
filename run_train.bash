@@ -36,6 +36,20 @@
 #     --epochs 20
 
 
+
+python3 sem_seg.py \
+    --train \
+    --model_name PIDNet_S \
+    --version 0 \
+    --source_domain Rural \
+    --batch_size 6 \
+    --criterion CrossEntropyLoss \
+    --optimizer SGD \
+    --scheduler PolynomialLR \
+    --epochs 20
+
+
+
 # Train PIDNet_S_Adversarial
 # python3 sem_seg.py \
 #     --train \
