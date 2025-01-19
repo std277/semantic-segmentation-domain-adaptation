@@ -68,16 +68,16 @@
 
 
 
-python3 sem_seg_dacs.py \
-    --train \
-    --model_name PIDNet_S \
-    --version T \
-    --horizontal_flip_augmentation \
-    --shift_scale_rotate_augmentation \
-    --grid_distortion_augmentation \
-    --batch_size 6 \
-    --patience 10 \
-    --epochs 30
+# python3 sem_seg_dacs.py \
+#     --train \
+#     --model_name PIDNet_S \
+#     --version T \
+#     --horizontal_flip_augmentation \
+#     --shift_scale_rotate_augmentation \
+#     --grid_distortion_augmentation \
+#     --batch_size 6 \
+#     --patience 10 \
+#     --epochs 30
 
     # --color_jitter_augmentation \
     # --gaussian_blur_augmentation \

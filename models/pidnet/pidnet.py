@@ -81,10 +81,8 @@ class PIDNet(nn.Module):
             
         self.layer5_d = self._make_layer(Bottleneck, planes * 2, planes * 2, 1)
         
-        # Prediction Head
-        if self.augment:
-            self.seghead_p = segmenthead(planes * 2, head_planes, num_classes)
-            self.seghead_d = segmenthead(planes * 2, planes, 1)           
+        self.seghead_p = segmenthead(planes * 2, head_planes, num_classes)
+        self.seghead_d = segmenthead(planes * 2, planes, 1)           
 
         self.final_layer = segmenthead(planes * 4, head_planes, num_classes)
 
