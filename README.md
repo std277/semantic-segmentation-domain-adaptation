@@ -9,18 +9,7 @@ Resizing: (512, 512)
 
 | VERSION | DATA AUG           | SRC DOMAIN | BATCH SIZE | CRITERION            | OPTIMIZER                                | SCHEDULER                           | NUM_EPOCHS | mIoU (%) (Urban) | mIoU (%) (Rural) |
 |---------|--------------------|------------|------------|----------------------|------------------------------------------|-------------------------------------|------------|------------------|------------------|
-| 0       | -                  | Rural      | 6          | CrossEntropyLoss     | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.01, power=0.9)    | 20         |             |             |
-
-
-Model parameters: 43.016M
-
-FLOPs: 1.11T
-
-Mean inference time: 4.032 ms
-
-Standard deviation of inference time: 3.590 ms
-
-(Latencies computed on google colab with Tesla T4 GPU)
+| 0       | -                  | Rural      | 6          | OhemCrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.01, power=0.9)    | 20         |             |             |
 
 
 
@@ -31,12 +20,10 @@ Model name: `PIDNet_S`
 
 | VERSION | DATA AUG           | SRC DOMAIN | BATCH SIZE | CRITERION            | OPTIMIZER                                | SCHEDULER                           | NUM_EPOCHS | mIoU (%) (Urban) | mIoU (%) (Rural) |
 |---------|--------------------|------------|------------|----------------------|------------------------------------------|-------------------------------------|------------|------------------|------------------|
-| 0       | -                  | Rural      | 6          | CrossEntropyLoss     | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.01, power=0.9)    | 20         |             |             |
-| 1       | -                  | Urban      | 6          | CrossEntropyLoss     | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.01, power=0.9)    | 20         |             |             |
-| 2       | (HF, SSR)          | Urban      | 6          | CrossEntropyLoss     | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.01, power=0.9)    | 30         |             |             |
-| 3       | (BC, CD)           | Urban      | 6          | CrossEntropyLoss     | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.01, power=0.9)    | 30         |             |             |
-| 4       | (HF, SSR, BC, CD)  | Urban      | 6          | CrossEntropyLoss     | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.01, power=0.9)    | 30         |             |             |
-| 5       | (HF, SSR, GD)      | Urban      | 6          | CrossEntropyLoss     | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.01, power=0.9)    | 30         |             |             |
+| 0       | -                  | Rural      | 6          | OhemCrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.01, power=0.9)    | 20         | 39.31            | 31.12            |
+| 1       | -                  | Urban      | 6          | OhemCrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.01, power=0.9)    | 20         |             |             |
+| 2       | -                  | Rural      | 6          | OhemCrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9)   | 20         |             |             |
+| 3       | -                  | Urban      | 6          | OhemCrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9)   | 20         |             |             |
 
 Data augmentation:
 - HF: Horizontal Flip
@@ -47,64 +34,13 @@ Data augmentation:
 
 Model parameters: 7.718M
 
-FLOPs: 37.902G
+FLOPs: 0.142T
 
-Mean inference time: 5.090 ms
+Mean inference time: 5.241 ms
 
-Standard deviation of inference time: 3.142 msg
-
-(Latencies computed on google colab with Tesla T4 GPU)
-
-
-
-
-
-
-
-
-Model name: `PIDNet_S_DACS`
-
-| VERSION | DATA AUG           | SRC DOMAIN | BATCH SIZE | CRITERION            | OPTIMIZER                                | SCHEDULER                           | NUM_EPOCHS | mIoU (%) (Urban) | mIoU (%) (Rural) |
-|---------|--------------------|------------|------------|----------------------|------------------------------------------|-------------------------------------|------------|------------------|------------------|
-| 0       | -                  | Urban      | 6          | CrossEntropyLoss     | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.01, power=0.9)    | 30         |             |             |
-| 1       | (CJ, GB)           | Urban      | 6          | CrossEntropyLoss     | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.01, power=0.9)    | 30         |             |             | 
-| 2       | (CJ, GB)           | Urban      | 2          | CrossEntropyLoss     | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.01, power=0.9)    | 30         |             |             | 
-| 3       | (CJ, GB)           | Urban      | 6          | CrossEntropyLoss     | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9)   | 30         |             |             | 
-| 4       | (CJ, GB)           | Urban      | 6          | CrossEntropyLoss     | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.00025, power=0.9) | 30         |             |             | 
-| 5       | (HF, SSR, GD)      | Urban      | 6          | CrossEntropyLoss     | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9)   | 30         |             |             | 
-
-
-Data augmentation:
-- HF: Horizontal Flip
-- SSR: Shift Scale Rotate
-- BC: Brightness Contrast
-- CD: Coarse Dropout
-- GD: Grid Distortion
-- CJ: Color Jitter
-- GB: Gaussian Blur
-
-Model parameters: 7.718M
-
-FLOPs: 37.902G
-
-Mean inference time: 5.896 ms
-
-Standard deviation of inference time: 2.660 ms
+Standard deviation of inference time: 2.625 ms
 
 (Latencies computed on google colab with Tesla T4 GPU)
-
-
-
-Optional:
-- Fix OhemCrossEntropyLoss
-
-
-
-
-
-
-
-
 
 
 
@@ -229,8 +165,3 @@ Mean inference time: 5.896 ms
 Standard deviation of inference time: 2.660 ms
 
 (Latencies computed on google colab with Tesla T4 GPU)
-
-
-
-Optional:
-- Fix OhemCrossEntropyLoss
