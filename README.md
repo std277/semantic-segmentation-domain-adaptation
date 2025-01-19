@@ -70,7 +70,7 @@ Standard deviation of inference time: 2.625 ms
 
 
 
-## Wrong Trainings
+## Old Trainings
 
 Model name: `DeepLabV2_ResNet101`
 
