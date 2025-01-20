@@ -595,46 +595,77 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
 
 
             # Train Segmentation Network with Labeled data
-            # src_transformed_images = []
-            # src_transformed_masks = []
-            # for j in range(src_images.shape[0]):
-            #     image = src_images[j]
-            #     mask = src_masks[j]
 
-            #     image = image.squeeze(0).cpu().numpy().transpose((1, 2, 0))             
-            #     mask = mask.squeeze(0).cpu().numpy()
+            src_transformed_images = []
+            src_transformed_masks = []
+            for j in range(src_images.shape[0]):
+                image = src_images[j]
+                mask = src_masks[j]
 
-            #     transformation = transform(image=image, mask=mask)
-            #     image, mask = transformation['image'], transformation['mask']
-            #     mask = mask.long()
+                image = image.squeeze(0).cpu().numpy().transpose((1, 2, 0))             
+                mask = mask.squeeze(0).cpu().numpy()
 
-            #     src_transformed_images.append(image)
-            #     src_transformed_masks.append(mask)
+                transformation = transform(image=image, mask=mask)
+                image, mask = transformation['image'], transformation['mask']
+                mask = mask.long()
 
-            # src_transformed_images = torch.stack(src_transformed_images).to(device)
-            # src_transformed_masks = torch.stack(src_transformed_masks).to(device)
+                src_transformed_images.append(image)
+                src_transformed_masks.append(mask)
+
+            src_transformed_images = torch.stack(src_transformed_images).to(device)
+            src_transformed_masks = torch.stack(src_transformed_masks).to(device)
+
+
+
+
+            src_transformed_logits = model(src_transformed_images)
             
-            
-            src_logits = model(src_images)
-
-
-            h, w = src_masks.size(1), src_masks.size(2)
-            ph, pw = src_logits[0].size(2), src_logits[0].size(3)
+            h, w = src_transformed_masks.size(1), src_transformed_masks.size(2)
+            ph, pw = src_transformed_logits[0].size(2), src_transformed_logits[0].size(3)
             if ph != h or pw != w:
-                for j in range(len(src_logits)):
-                    src_logits[j] = F.interpolate(src_logits[j], size=(h, w), mode='bilinear', align_corners=False)
+                for j in range(len(src_transformed_logits)):
+                    src_transformed_logits[j] = F.interpolate(src_transformed_logits[j], size=(h, w), mode='bilinear', align_corners=False)
 
 
-            loss_s = criterion(src_logits[:-1], src_masks, balance_weights=[0.4, 1.0])
-            loss_b = bd_criterion(src_logits[-1], src_boundaries)
+            loss_s = criterion(src_transformed_logits[:-1], src_transformed_masks, balance_weights=[0.4, 1.0])
+            loss_b = bd_criterion(src_transformed_logits[-1], src_boundaries)
 
-            filler = torch.ones_like(src_masks) * 255
-            bd_label = torch.where(F.sigmoid(src_logits[-1][:,0,:,:])>0.8, src_masks, filler)
-            loss_sb = criterion(src_logits[-2], bd_label)
+            filler = torch.ones_like(src_transformed_masks) * 255
+            bd_label = torch.where(F.sigmoid(src_transformed_logits[-1][:,0,:,:])>0.8, src_transformed_masks, filler)
+            loss_sb = criterion(src_transformed_logits[-2], bd_label)
             
             loss_labeled = loss_s + loss_b + loss_sb
 
             cumulative_loss_labeled += loss_labeled.item()
+
+
+
+
+            
+            # src_logits = model(src_images)
+
+            # h, w = src_masks.size(1), src_masks.size(2)
+            # ph, pw = src_logits[0].size(2), src_logits[0].size(3)
+            # if ph != h or pw != w:
+            #     for j in range(len(src_logits)):
+            #         src_logits[j] = F.interpolate(src_logits[j], size=(h, w), mode='bilinear', align_corners=False)
+
+
+            # loss_s = criterion(src_logits[:-1], src_masks, balance_weights=[0.4, 1.0])
+            # loss_b = bd_criterion(src_logits[-1], src_boundaries)
+
+            # filler = torch.ones_like(src_masks) * 255
+            # bd_label = torch.where(F.sigmoid(src_logits[-1][:,0,:,:])>0.8, src_masks, filler)
+            # loss_sb = criterion(src_logits[-2], bd_label)
+            
+            # loss_labeled = loss_s + loss_b + loss_sb
+
+            # cumulative_loss_labeled += loss_labeled.item()
+
+
+
+
+
 
 
 
