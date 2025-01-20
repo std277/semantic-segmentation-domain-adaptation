@@ -458,7 +458,6 @@ def dataset_preprocessing(domain, batch_size, data_augmentation, args):
 
 
     # Define train transform
-
     train_transform = transform
 
     if data_augmentation:
@@ -1115,7 +1114,7 @@ def main():
             args=args
         )
         
-        inspect_dataset(trainloader, valloader)
+        # inspect_dataset(trainloader, valloader)
 
         model = get_model(args, device)
 
