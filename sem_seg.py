@@ -443,56 +443,59 @@ def log_testing_setup(device, args, monitor):
 
 
 def dataset_preprocessing(domain, batch_size, data_augmentation, args):
-    
-    # Define transforms
+    # Define val and test transform
+    if args.model_name == "DeepLabV2_ResNet101":
+        transform = Compose([
+            Resize(512, 512),
+            Normalize(mean=MEAN, std=STD, always_apply=True),
+            ToTensorV2()
+        ])
+    else:
+        transform = Compose([
+            Normalize(mean=MEAN, std=STD, always_apply=True),
+            ToTensorV2()
+        ])
+
+
+    # Define train transform
+
+    train_transform = transform
+
     if data_augmentation:
-        transform_list = []
+        train_transform_list = []
         if args.model_name == "DeepLabV2_ResNet101":
             size = (512, 512)
-            transform_list.append(Resize(512, 512))
+            train_transform_list.append(Resize(512, 512))
         else:
             size = (1024, 1024)
-        transform_list.append(Normalize(mean=MEAN, std=STD, always_apply=True))
+        train_transform_list.append(Normalize(mean=MEAN, std=STD, always_apply=True))
 
         if args.horizontal_flip_augmentation:
-            transform_list.append(HorizontalFlip(p=0.5))
+            train_transform_list.append(HorizontalFlip(p=0.5))
         if args.shift_scale_rotate_augmentation:
-            transform_list.append(ShiftScaleRotate(shift_limit=0.1, scale_limit=0.25, rotate_limit=15, fill=(0, 0, 0), fill_mask=255, p=0.5))
+            train_transform_list.append(ShiftScaleRotate(shift_limit=0.1, scale_limit=0.25, rotate_limit=15, fill=(0, 0, 0), fill_mask=255, p=0.5))
         if args.brightness_contrast_augmentation:
-            transform_list.append(RandomBrightnessContrast(p=0.5))
+            train_transform_list.append(RandomBrightnessContrast(p=0.5))
         if args.coarse_dropout_augmentation:
-            transform_list.append(CoarseDropout(max_holes=3, max_height=384, max_width=384, fill=(0, 0, 0), fill_mask=255, p=0.5))
+            train_transform_list.append(CoarseDropout(max_holes=3, max_height=384, max_width=384, fill=(0, 0, 0), fill_mask=255, p=0.5))
         if args.grid_distortion_augmentation:
-            transform_list.append(GridDistortion(num_steps=5, distort_limit=0.3, p=0.5))
+            train_transform_list.append(GridDistortion(num_steps=5, distort_limit=0.3, p=0.5))
         if args.color_jitter_augmentation:
-            transform_list.append(ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1, p=0.5))
+            train_transform_list.append(ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1, p=0.5))
         if args.gaussian_blur_augmentation:
-            transform_list.append(GaussianBlur(blur_limit=(3, 7), p=0.5))
+            train_transform_list.append(GaussianBlur(blur_limit=(3, 7), p=0.5))
         if args.random_crop_augmentation:
-            transform_list.append(Compose([
+            train_transform_list.append(Compose([
                 RandomCrop(width=720, height=720, p=0.5),
                 PadIfNeeded(min_width=size[0], min_height=size[1], fill=(0, 0, 0), fill_mask=255)
             ]))
 
-        transform_list.append(ToTensorV2())
+        train_transform_list.append(ToTensorV2())
 
-        transform = Compose(transform_list)
-
-    else:
-        if args.model_name == "DeepLabV2_ResNet101":
-            transform = Compose([
-                Resize(512, 512),
-                Normalize(mean=MEAN, std=STD, always_apply=True),
-                ToTensorV2()
-            ])
-        else:
-            transform = Compose([
-                Normalize(mean=MEAN, std=STD, always_apply=True),
-                ToTensorV2()
-            ])
+        train_transform = Compose(train_transform_list)
 
     # Define the Dataset object for training, validation and testing
-    traindataset = LoveDADataset(dataset_type="Train", domain=domain, transform=transform, root_dir='data')
+    traindataset = LoveDADataset(dataset_type="Train", domain=domain, transform=train_transform, root_dir='data')
     valdataset = LoveDADataset(dataset_type="Val", domain=domain, transform=transform, root_dir='data')
     testdataset = LoveDADataset(dataset_type="Test", domain=domain, transform=transform, root_dir='data')
 
@@ -1112,7 +1115,7 @@ def main():
             args=args
         )
         
-        # inspect_dataset(trainloader, valloader)
+        inspect_dataset(trainloader, valloader)
 
         model = get_model(args, device)
 
