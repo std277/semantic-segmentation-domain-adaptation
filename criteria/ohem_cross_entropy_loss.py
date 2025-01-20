@@ -37,7 +37,7 @@ class OhemCrossEntropyLoss(nn.Module):
         pixel_losses = pixel_losses[pred < threshold]
         return pixel_losses.mean()
 
-    def forward(self, score, target, balance_weights=[0.4, 1.0], sb_weights=1.0):
+    def forward(self, score, target, balance_weights=[0.4, 1.0], sb_weights=1.0, pixel_wise_weights = None):
         
         if not (isinstance(score, list) or isinstance(score, tuple)):
             return sb_weights * self._ohem_forward(score, target)
@@ -45,6 +45,9 @@ class OhemCrossEntropyLoss(nn.Module):
             if len(balance_weights) == len(score):
                 functions = [self._ce_forward] * (len(balance_weights) - 1) + [self._ohem_forward]
                 loss = sum([w * func(x, target) for (w, x, func) in zip(balance_weights, score, functions)])
-                return loss
+                if pixel_wise_weights is not None:
+                    return torch.mean(loss * pixel_wise_weights)
+                else:
+                    return loss
             else:
                 raise ValueError("Lengths of prediction and target are not identical!")

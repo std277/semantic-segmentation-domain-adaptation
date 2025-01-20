@@ -338,6 +338,9 @@ def log_training_setup(device, args, monitor):
         device_name = torch.cuda.get_device_name(torch.cuda.current_device())
         monitor.log(f"Cuda device name: {device_name}")
 
+    monitor.log(f"Dataset source domain: Urban")
+    monitor.log(f"Dataset target domain: Rural")
+
     data_augmentation = args.horizontal_flip_augmentation or args.shift_scale_rotate_augmentation or args.brightness_contrast_augmentation or args.coarse_dropout_augmentation or args.grid_distortion_augmentation or args.color_jitter_augmentation or args.gaussian_blur_augmentation
 
     monitor.log(f"Data augmentation: {data_augmentation}")
@@ -359,6 +362,19 @@ def log_training_setup(device, args, monitor):
         monitor.log("- RandomCrop(width=720, height=720, p=0.5) PadIfNeeded(min_width=size[0], min_height=size[1], fill=(0, 0, 0), fill_mask=255)")
 
     monitor.log(f"Batch size: {args.batch_size}\n")
+
+    monitor.log(f"Criterion: OhemCrossEntropyLoss\n")
+
+    monitor.log(f"Optimizer:\nSGD (")
+    monitor.log(f"    lr: {args.lr}")
+    monitor.log(f"    momentum: {args.momentum}")
+    monitor.log(f"    weight_decay: {args.weight_decay}")
+    monitor.log(")\n")
+
+    monitor.log(f"Scheduler:\nPolynomialLR (")
+    monitor.log(f"    lr: {args.lr}")
+    monitor.log(f"    power: {args.power}")
+    monitor.log(")\n")
 
 
 
@@ -470,7 +486,7 @@ def load_model(model, file_name, device):
 
 
 def get_criterion():
-    criterion = CrossEntropyLoss(ignore_label=255)
+    criterion = OhemCrossEntropyLoss(ignore_label=255)
     bd_criterion = BoundaryLoss()
 
     return criterion, bd_criterion
@@ -535,7 +551,7 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
     cudnn.benchmark = True
 
     train_num_steps = min(len(src_trainloader), len(trg_trainloader))
-    val_num_steps = min(len(src_valloader), len(trg_valloader))
+    val_num_steps = len(src_valloader)
 
     train_losses_labeled = []
     train_losses_unlabeled = []
@@ -576,7 +592,6 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
             trg_images = trg_images.to(device)
 
             optimizer.zero_grad()
-
 
 
             # Train Segmentation Network with Labeled data
@@ -687,6 +702,7 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
 
             mixed_boundaries = compute_boundaries(mixed_masks.cpu())
             
+
             # for image, mask, boundary in zip(mixed_images, mixed_masks, mixed_boundaries):
             #     plot_dataset_entry(
             #         image.numpy(),
@@ -698,6 +714,7 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
             #         show=True
             #     )
 
+
             mixed_images = mixed_images.to(device)
             mixed_masks = mixed_masks.to(device)
             mixed_boundaries = mixed_boundaries.to(device)
@@ -706,7 +723,7 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
 
             mixed_logits = model(mixed_images)
 
-            h, w = src_masks.size(1), src_masks.size(2)
+            h, w = mixed_masks.size(1), mixed_masks.size(2)
             ph, pw = mixed_logits[0].size(2), mixed_logits[0].size(3)
             if ph != h or pw != w:
                 for j in range(len(mixed_logits)):
@@ -958,7 +975,6 @@ def test(model, valloader, device, monitor):
             ph, pw = logits.size(1), logits.size(2)
             if ph != h or pw != w:
                 logits = F.interpolate(logits, size=(h, w), mode='bilinear', align_corners=False)
-
 
             batch_inference_time = (end_time - start_time) / images.size(0)
             inference_times.append(batch_inference_time)
