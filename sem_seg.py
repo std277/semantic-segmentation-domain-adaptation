@@ -18,7 +18,7 @@ from torch.optim.lr_scheduler import LambdaLR, StepLR, CosineAnnealingLR
 from torch.backends import cudnn
 from torch.amp import GradScaler, autocast
 
-from albumentations import Compose, Resize, Normalize, HorizontalFlip, VerticalFlip, RandomRotate90, ShiftScaleRotate, RandomBrightnessContrast, CoarseDropout, GridDistortion, ColorJitter, GaussianBlur, RandomCrop
+from albumentations import Compose, Resize, Normalize, HorizontalFlip, VerticalFlip, RandomRotate90, ShiftScaleRotate, RandomBrightnessContrast, CoarseDropout, GridDistortion, ColorJitter, GaussianBlur, RandomCrop, PadIfNeeded
 from albumentations.pytorch import ToTensorV2
 
 from fvcore.nn import FlopCountAnalysis, flop_count_table
@@ -387,11 +387,11 @@ def log_training_setup(device, args, monitor):
     if args.horizontal_flip_augmentation:
         monitor.log("- HorizontalFlip(p=0.5)")
     if args.shift_scale_rotate_augmentation:
-        monitor.log("- ShiftScaleRotate(shift_limit=0.1, scale_limit=0.2, rotate_limit=15, p=0.5)")
+        monitor.log("- ShiftScaleRotate(shift_limit=0.1, scale_limit=0.25, rotate_limit=15, fill=(0, 0, 0), fill_mask=255, p=0.5)")
     if args.brightness_contrast_augmentation:
         monitor.log("- RandomBrightnessContrast(p=0.5)")
     if args.coarse_dropout_augmentation:
-        monitor.log("- CoarseDropout(max_holes=8, max_height=32, max_width=32, p=0.5)")
+        monitor.log("- CoarseDropout(max_holes=8, max_height=32, max_width=32, fill=(0, 0, 0), fill_mask=255, p=0.5)")
     if args.grid_distortion_augmentation:
         monitor.log("- GridDistortion(num_steps=5, distort_limit=0.3, p=0.5)")
     if args.color_jitter_augmentation:
@@ -399,7 +399,7 @@ def log_training_setup(device, args, monitor):
     if args.gaussian_blur_augmentation:
         monitor.log("- GaussianBlur(blur_limit=(3, 7), p=0.5)")
     if args.random_crop_augmentation:
-        monitor.log("- RandomCrop(width=720, height=720, p=0.5)")
+        monitor.log("- RandomCrop(width=720, height=720, p=0.5) PadIfNeeded(min_width=size[0], min_height=size[1], fill=(0, 0, 0), fill_mask=255)")
             
 
     monitor.log(f"Batch size: {args.batch_size}\n")
@@ -448,17 +448,20 @@ def dataset_preprocessing(domain, batch_size, data_augmentation, args):
     if data_augmentation:
         transform_list = []
         if args.model_name == "DeepLabV2_ResNet101":
+            size = (512, 512)
             transform_list.append(Resize(512, 512))
+        else:
+            size = (1024, 1024)
         transform_list.append(Normalize(mean=MEAN, std=STD, always_apply=True))
 
         if args.horizontal_flip_augmentation:
             transform_list.append(HorizontalFlip(p=0.5))
         if args.shift_scale_rotate_augmentation:
-            transform_list.append(ShiftScaleRotate(shift_limit=0.1, scale_limit=0.25, rotate_limit=15, p=0.5))
+            transform_list.append(ShiftScaleRotate(shift_limit=0.1, scale_limit=0.25, rotate_limit=15, fill=(0, 0, 0), fill_mask=255, p=0.5))
         if args.brightness_contrast_augmentation:
             transform_list.append(RandomBrightnessContrast(p=0.5))
         if args.coarse_dropout_augmentation:
-            transform_list.append(CoarseDropout(max_holes=8, max_height=32, max_width=32, p=0.5))
+            transform_list.append(CoarseDropout(max_holes=8, max_height=32, max_width=32, fill=(0, 0, 0), fill_mask=255, p=0.5))
         if args.grid_distortion_augmentation:
             transform_list.append(GridDistortion(num_steps=5, distort_limit=0.3, p=0.5))
         if args.color_jitter_augmentation:
@@ -466,7 +469,10 @@ def dataset_preprocessing(domain, batch_size, data_augmentation, args):
         if args.gaussian_blur_augmentation:
             transform_list.append(GaussianBlur(blur_limit=(3, 7), p=0.5))
         if args.random_crop_augmentation:
-            transform_list.append(RandomCrop(width=720, height=720, p=0.5))
+            transform_list.append(Compose([
+                RandomCrop(width=720, height=720, p=0.5),
+                PadIfNeeded(min_width=size[0], min_height=size[1], fill=(0, 0, 0), fill_mask=255)
+            ]))
 
         transform_list.append(ToTensorV2())
 

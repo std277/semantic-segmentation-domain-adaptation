@@ -37,17 +37,33 @@
 
 
 
+# python3 sem_seg.py \
+#     --train \
+#     --model_name PIDNet_S \
+#     --version 0 \
+#     --source_domain Rural \
+#     --batch_size 6 \
+#     --criterion OhemCrossEntropyLoss \
+#     --optimizer SGD \
+#     --scheduler PolynomialLR \
+#     --epochs 20
+
+
 python3 sem_seg.py \
     --train \
     --model_name PIDNet_S \
-    --version 0 \
-    --source_domain Rural \
+    --version 6 \
+    --source_domain Urban \
+    --shift_scale_rotate_augmentation \
+    --random_crop_augmentation \
     --batch_size 6 \
     --criterion OhemCrossEntropyLoss \
     --optimizer SGD \
     --scheduler PolynomialLR \
+    --lr 0.001 \
     --epochs 20
 
+    # --coarse_dropout_augmentation \
 
 
 # Train PIDNet_S_Adversarial

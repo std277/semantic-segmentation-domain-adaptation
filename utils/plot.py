@@ -169,6 +169,8 @@ def inspect_dataset(trainloader, valloader):
             images, masks, boundaries = next(it)
 
             for image, mask, boundary in zip(images, masks, boundaries):
+                print(f"Image:\n{image}\n\n")
+                print(f"Mask:\n{mask}\n\n")
                 plot_dataset_entry(image, mask if type != "Test" else None, boundary, alpha=0.4, title=f"{type} image sample")
 
             # plot_batch(images, masks if type!="Test" else None, alpha=0.3, title=f"{type} image batch")
