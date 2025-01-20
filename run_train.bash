@@ -63,7 +63,7 @@ python3 sem_seg.py \
     --lr 0.001 \
     --epochs 20
 
-    --random_crop_augmentation \
+    # --random_crop_augmentation \
 
 
 # Train PIDNet_S_Adversarial
