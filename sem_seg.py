@@ -1112,7 +1112,7 @@ def main():
             args=args
         )
         
-        inspect_dataset(trainloader, valloader)
+        # inspect_dataset(trainloader, valloader)
 
         model = get_model(args, device)
 
