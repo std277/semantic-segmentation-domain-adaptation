@@ -391,7 +391,7 @@ def log_training_setup(device, args, monitor):
     if args.brightness_contrast_augmentation:
         monitor.log("- RandomBrightnessContrast(p=0.5)")
     if args.coarse_dropout_augmentation:
-        monitor.log("- CoarseDropout(max_holes=8, max_height=32, max_width=32, fill=(0, 0, 0), fill_mask=255, p=0.5)")
+        monitor.log("- CoarseDropout(max_holes=3, max_height=384, max_width=384, fill=(0, 0, 0), fill_mask=255, p=0.5)")
     if args.grid_distortion_augmentation:
         monitor.log("- GridDistortion(num_steps=5, distort_limit=0.3, p=0.5)")
     if args.color_jitter_augmentation:
@@ -461,7 +461,7 @@ def dataset_preprocessing(domain, batch_size, data_augmentation, args):
         if args.brightness_contrast_augmentation:
             transform_list.append(RandomBrightnessContrast(p=0.5))
         if args.coarse_dropout_augmentation:
-            transform_list.append(CoarseDropout(max_holes=8, max_height=32, max_width=32, fill=(0, 0, 0), fill_mask=255, p=0.5))
+            transform_list.append(CoarseDropout(max_holes=3, max_height=384, max_width=384, fill=(0, 0, 0), fill_mask=255, p=0.5))
         if args.grid_distortion_augmentation:
             transform_list.append(GridDistortion(num_steps=5, distort_limit=0.3, p=0.5))
         if args.color_jitter_augmentation:
@@ -1112,7 +1112,7 @@ def main():
             args=args
         )
         
-        # inspect_dataset(trainloader, valloader)
+        inspect_dataset(trainloader, valloader)
 
         model = get_model(args, device)
 

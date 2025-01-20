@@ -55,7 +55,7 @@ python3 sem_seg.py \
     --version 6 \
     --source_domain Urban \
     --shift_scale_rotate_augmentation \
-    --random_crop_augmentation \
+    --coarse_dropout_augmentation \
     --batch_size 6 \
     --criterion OhemCrossEntropyLoss \
     --optimizer SGD \
@@ -63,7 +63,7 @@ python3 sem_seg.py \
     --lr 0.001 \
     --epochs 20
 
-    # --coarse_dropout_augmentation \
+    --random_crop_augmentation \
 
 
 # Train PIDNet_S_Adversarial
