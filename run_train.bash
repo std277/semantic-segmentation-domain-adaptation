@@ -49,19 +49,19 @@
 #     --epochs 20
 
 
-# python3 sem_seg.py \
-#     --train \
-#     --model_name PIDNet_S \
-#     --version 6 \
-#     --source_domain Urban \
-#     --shift_scale_rotate_augmentation \
-#     --random_crop_augmentation \
-#     --batch_size 6 \
-#     --criterion OhemCrossEntropyLoss \
-#     --optimizer SGD \
-#     --scheduler PolynomialLR \
-#     --lr 0.001 \
-#     --epochs 20
+python3 sem_seg.py \
+    --train \
+    --model_name PIDNet_S \
+    --version 6 \
+    --source_domain Urban \
+    --shift_scale_rotate_augmentation \
+    --random_crop_augmentation \
+    --batch_size 6 \
+    --criterion OhemCrossEntropyLoss \
+    --optimizer SGD \
+    --scheduler PolynomialLR \
+    --lr 0.001 \
+    --epochs 20
     # --coarse_dropout_augmentation \
 
 
@@ -112,16 +112,16 @@
 
 
 
-python3 sem_seg_dacs.py \
-    --train \
-    --model_name PIDNet_S \
-    --version T \
-    --horizontal_flip_augmentation \
-    --shift_scale_rotate_augmentation \
-    --random_crop_augmentation \
-    --batch_size 6 \
-    --patience 10 \
-    --epochs 30
+# python3 sem_seg_dacs.py \
+#     --train \
+#     --model_name PIDNet_S \
+#     --version T \
+#     --horizontal_flip_augmentation \
+#     --shift_scale_rotate_augmentation \
+#     --random_crop_augmentation \
+#     --batch_size 6 \
+#     --patience 10 \
+#     --epochs 30
 
     # --grid_distortion_augmentation \
     # --color_jitter_augmentation \

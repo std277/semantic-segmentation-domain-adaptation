@@ -370,7 +370,7 @@ def log_training_setup(device, args, monitor):
     if args.gaussian_blur_augmentation:
         monitor.log("- GaussianBlur(blur_limit=(3, 7), p=0.5)")
     if args.random_crop_augmentation:
-        monitor.log("- RandomCrop(width=720, height=720, p=0.5) PadIfNeeded(min_width=size[0], min_height=size[1], fill=(0, 0, 0), fill_mask=255)")
+        monitor.log("- RandomCrop(width=720, height=720, p=0.5) PadIfNeeded(min_width=size[0], min_height=size[1], position='random', fill=(0, 0, 0), fill_mask=255)")
 
     monitor.log(f"Batch size: {args.batch_size}\n")
 
@@ -421,7 +421,7 @@ def dataset_preprocessing(domain, batch_size, data_augmentation, args):
         if args.random_crop_augmentation:
             train_transform_list.append(Compose([
                 RandomCrop(width=720, height=720, p=0.5),
-                PadIfNeeded(min_width=size[0], min_height=size[1], fill=(0, 0, 0), fill_mask=255)
+                PadIfNeeded(min_width=size[0], min_height=size[1], position="random", fill=(0, 0, 0), fill_mask=255)
             ]))
 
         train_transform_list.append(ToTensorV2())
