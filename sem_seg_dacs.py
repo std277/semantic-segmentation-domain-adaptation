@@ -359,7 +359,7 @@ def log_training_setup(device, args, monitor):
     if args.gaussian_blur_augmentation:
         monitor.log("- GaussianBlur(blur_limit=(3, 7), p=0.5)")
     if args.random_crop_augmentation:
-        monitor.log("- RandomCrop(width=720, height=720, p=0.5) PadIfNeeded(min_width=size[0], min_height=size[1], fill=(0, 0, 0), fill_mask=255)")
+        monitor.log("- RandomCrop(width=512, height=512, p=1.0) PadIfNeeded(min_width=size[0], min_height=size[1], fill=(0, 0, 0), fill_mask=255)")
 
     monitor.log(f"Batch size: {args.batch_size}\n")
 
@@ -388,7 +388,7 @@ def log_testing_setup(device, args, monitor):
 
 
 
-def dataset_preprocessing(domain, batch_size):
+def dataset_preprocessing(domain, batch_size, args):
     
     transform = Compose([
         # Resize(512, 512),
@@ -396,8 +396,24 @@ def dataset_preprocessing(domain, batch_size):
         ToTensorV2()
     ])
 
+    train_transform = transform
+
+    if args.random_crop_augmentation:
+        train_transform = Compose([
+            # Resize(512, 512),
+            Normalize(mean=MEAN, std=STD, always_apply=True),
+            Compose([
+                RandomCrop(width=512, height=512, p=1.0),
+                PadIfNeeded(min_width=1024, min_height=1024, fill=(0, 0, 0), fill_mask=255)
+            ]),
+            ToTensorV2()
+        ])
+
+
+    
+
     # Define the Dataset object for training, validation and testing
-    traindataset = LoveDADataset(dataset_type="Train", domain=domain, transform=transform, root_dir='data')
+    traindataset = LoveDADataset(dataset_type="Train", domain=domain, transform=train_transform, root_dir='data')
     valdataset = LoveDADataset(dataset_type="Val", domain=domain, transform=transform, root_dir='data')
     testdataset = LoveDADataset(dataset_type="Test", domain=domain, transform=transform, root_dir='data')
 
@@ -427,11 +443,11 @@ def get_transform(args):
         transform_list.append(ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1, p=0.5))
     if args.gaussian_blur_augmentation:
         transform_list.append(GaussianBlur(blur_limit=(3, 7), p=0.5))
-    if args.random_crop_augmentation:
-        transform_list.append(Compose([
-            RandomCrop(width=720, height=720, p=0.5),
-            PadIfNeeded(min_width=1024, min_height=1024, fill=(0, 0, 0), fill_mask=255)
-        ]))
+    # if args.random_crop_augmentation:
+    #     transform_list.append(Compose([
+    #         RandomCrop(width=720, height=720, p=0.5),
+    #         PadIfNeeded(min_width=1024, min_height=1024, fill=(0, 0, 0), fill_mask=255)
+    #     ]))
 
     transform_list.append(ToTensorV2())
 
@@ -618,49 +634,49 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
 
 
 
-            src_logits = model(src_transformed_images)
+            # src_logits = model(src_transformed_images)
             
-            h, w = src_transformed_masks.size(1), src_transformed_masks.size(2)
-            ph, pw = src_logits[0].size(2), src_logits[0].size(3)
-            if ph != h or pw != w:
-                for j in range(len(src_logits)):
-                    src_logits[j] = F.interpolate(src_logits[j], size=(h, w), mode='bilinear', align_corners=False)
-
-
-            loss_s = criterion(src_logits[:-1], src_transformed_masks, balance_weights=[0.4, 1.0])
-            loss_b = bd_criterion(src_logits[-1], src_boundaries)
-
-            filler = torch.ones_like(src_transformed_masks) * 255
-            bd_label = torch.where(F.sigmoid(src_logits[-1][:,0,:,:])>0.8, src_transformed_masks, filler)
-            loss_sb = criterion(src_logits[-2], bd_label)
-            
-            loss_labeled = loss_s + loss_b + loss_sb
-
-            cumulative_loss_labeled += loss_labeled.item()
-
-
-
-
-            
-            # src_logits = model(src_images)
-
-            # h, w = src_masks.size(1), src_masks.size(2)
+            # h, w = src_transformed_masks.size(1), src_transformed_masks.size(2)
             # ph, pw = src_logits[0].size(2), src_logits[0].size(3)
             # if ph != h or pw != w:
             #     for j in range(len(src_logits)):
             #         src_logits[j] = F.interpolate(src_logits[j], size=(h, w), mode='bilinear', align_corners=False)
 
 
-            # loss_s = criterion(src_logits[:-1], src_masks, balance_weights=[0.4, 1.0])
+            # loss_s = criterion(src_logits[:-1], src_transformed_masks, balance_weights=[0.4, 1.0])
             # loss_b = bd_criterion(src_logits[-1], src_boundaries)
 
-            # filler = torch.ones_like(src_masks) * 255
-            # bd_label = torch.where(F.sigmoid(src_logits[-1][:,0,:,:])>0.8, src_masks, filler)
+            # filler = torch.ones_like(src_transformed_masks) * 255
+            # bd_label = torch.where(F.sigmoid(src_logits[-1][:,0,:,:])>0.8, src_transformed_masks, filler)
             # loss_sb = criterion(src_logits[-2], bd_label)
             
             # loss_labeled = loss_s + loss_b + loss_sb
 
             # cumulative_loss_labeled += loss_labeled.item()
+
+
+
+
+            
+            src_logits = model(src_images)
+
+            h, w = src_masks.size(1), src_masks.size(2)
+            ph, pw = src_logits[0].size(2), src_logits[0].size(3)
+            if ph != h or pw != w:
+                for j in range(len(src_logits)):
+                    src_logits[j] = F.interpolate(src_logits[j], size=(h, w), mode='bilinear', align_corners=False)
+
+
+            loss_s = criterion(src_logits[:-1], src_masks, balance_weights=[0.4, 1.0])
+            loss_b = bd_criterion(src_logits[-1], src_boundaries)
+
+            filler = torch.ones_like(src_masks) * 255
+            bd_label = torch.where(F.sigmoid(src_logits[-1][:,0,:,:])>0.8, src_masks, filler)
+            loss_sb = criterion(src_logits[-2], bd_label)
+            
+            loss_labeled = loss_s + loss_b + loss_sb
+
+            cumulative_loss_labeled += loss_labeled.item()
 
 
 
@@ -1100,12 +1116,14 @@ def main():
 
         src_trainloader, src_valloader, _ = dataset_preprocessing(
             domain="Urban",
-            batch_size=args.batch_size
+            batch_size=args.batch_size,
+            args=args
         )
 
         trg_trainloader, trg_valloader, _ = dataset_preprocessing(
             domain="Rural",
-            batch_size=args.batch_size
+            batch_size=args.batch_size,
+            args=args
         )
         
         # inspect_dataset(src_trainloader, src_valloader)
@@ -1163,7 +1181,8 @@ def main():
 
         trainloader, valloader, _ = dataset_preprocessing(
             domain=args.target_domain,
-            batch_size=args.batch_size
+            batch_size=args.batch_size,
+            args=args
         )
 
         model, _ = get_model(args, device)
@@ -1184,7 +1203,8 @@ def main():
 
         trainloader, valloader, _ = dataset_preprocessing(
             domain=args.target_domain,
-            batch_size=1
+            batch_size=1,
+            args=args
         )
 
         model, _ = get_model(args, device)
