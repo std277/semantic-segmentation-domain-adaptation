@@ -49,19 +49,19 @@
 #     --epochs 20
 
 
-python3 sem_seg.py \
-    --train \
-    --model_name PIDNet_S \
-    --version 6 \
-    --source_domain Urban \
-    --shift_scale_rotate_augmentation \
-    --random_crop_augmentation \
-    --batch_size 6 \
-    --criterion OhemCrossEntropyLoss \
-    --optimizer SGD \
-    --scheduler PolynomialLR \
-    --lr 0.001 \
-    --epochs 20
+# python3 sem_seg.py \
+#     --train \
+#     --model_name PIDNet_S \
+#     --version 6 \
+#     --source_domain Urban \
+#     --shift_scale_rotate_augmentation \
+#     --random_crop_augmentation \
+#     --batch_size 6 \
+#     --criterion OhemCrossEntropyLoss \
+#     --optimizer SGD \
+#     --scheduler PolynomialLR \
+#     --lr 0.001 \
+#     --epochs 20
     # --coarse_dropout_augmentation \
 
 
@@ -81,12 +81,6 @@ python3 sem_seg.py \
 
 
 # Train PIDNet_S_Adversarial
-# python3 sem_seg.py \
-#     --train \
-#     --model_name PIDNet_S \
-#     --version T \
-#     --batch_size 6 \
-#     --epochs 30
 
 # Train PIDNet_S_Adversarial
 # python3 sem_seg_da_adv.py \
@@ -100,16 +94,17 @@ python3 sem_seg.py \
 #     --batch_size 6 \
 #     --epochs 30
 
-# python3 sem_seg_da_adv.py \
-#     --train \
-#     --mode multi_level \
-#     --model_name PIDNet_S \
-#     --version 1 \
-#     --horizontal_flip_augmentation \
-#     --shift_scale_rotate_augmentation \
-#     --batch_size 6 \
-#     --epochs 30
+python3 sem_seg_da_adv.py \
+    --train \
+    --mode single_level \
+    --model_name PIDNet_S \
+    --version T \
+    --horizontal_flip_augmentation \
+    --shift_scale_rotate_augmentation \
+    --batch_size 6 \
+    --epochs 30
 
+#     --random_crop_augmentation \
 
 
 # python3 sem_seg_dacs.py \

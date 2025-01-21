@@ -391,7 +391,6 @@ def log_testing_setup(device, args, monitor):
 def dataset_preprocessing(domain, batch_size, args):
     
     transform = Compose([
-        # Resize(512, 512),
         Normalize(mean=MEAN, std=STD, always_apply=True),
         ToTensorV2()
     ])
@@ -400,7 +399,6 @@ def dataset_preprocessing(domain, batch_size, args):
 
     if args.random_crop_augmentation:
         train_transform = Compose([
-            # Resize(512, 512),
             Normalize(mean=MEAN, std=STD, always_apply=True),
             Compose([
                 RandomCrop(width=512, height=512, p=1.0),

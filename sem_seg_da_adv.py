@@ -352,6 +352,9 @@ def log_training_setup(device, args, monitor):
         device_name = torch.cuda.get_device_name(torch.cuda.current_device())
         monitor.log(f"Cuda device name: {device_name}")
 
+    monitor.log(f"Dataset source domain: Urban")
+    monitor.log(f"Dataset target domain: Rural")
+
     data_augmentation = args.horizontal_flip_augmentation or args.shift_scale_rotate_augmentation or args.brightness_contrast_augmentation or args.coarse_dropout_augmentation or args.grid_distortion_augmentation
     
     monitor.log(f"Data augmentation: {data_augmentation}")
@@ -373,6 +376,25 @@ def log_training_setup(device, args, monitor):
         monitor.log("- RandomCrop(width=720, height=720, p=0.5) PadIfNeeded(min_width=size[0], min_height=size[1], position='random', fill=(0, 0, 0), fill_mask=255)")
 
     monitor.log(f"Batch size: {args.batch_size}\n")
+
+    monitor.log(f"Criterion: OhemCrossEntropyLoss\n")
+    monitor.log(f"Criterion (Discriminator): BCEWithLogitsLoss\n")
+
+    monitor.log(f"Optimizer:\nSGD (")
+    monitor.log(f"    lr: {args.lr}")
+    monitor.log(f"    momentum: {args.momentum}")
+    monitor.log(f"    weight_decay: {args.weight_decay}")
+    monitor.log(")\n")
+
+    monitor.log(f"Optimizer (Discriminator):\nAdam (")
+    monitor.log(f"    lr: {args.lr_D}")
+    monitor.log(f"    betas: (0.9, 0.99)")
+    monitor.log(")\n")
+
+    monitor.log(f"Scheduler:\nPolynomialLR (")
+    monitor.log(f"    lr: {args.lr}")
+    monitor.log(f"    power: {args.power}")
+    monitor.log(")\n")
 
 
 
@@ -397,11 +419,7 @@ def dataset_preprocessing(domain, batch_size, data_augmentation, args):
 
     if data_augmentation:
         train_transform_list = []
-        if args.model_name == "DeepLabV2_ResNet101":
-            size = (512, 512)
-            train_transform_list.append(Resize(512, 512))
-        else:
-            size = (1024, 1024)
+
         train_transform_list.append(Normalize(mean=MEAN, std=STD, always_apply=True))
 
         if args.horizontal_flip_augmentation:
@@ -421,7 +439,7 @@ def dataset_preprocessing(domain, batch_size, data_augmentation, args):
         if args.random_crop_augmentation:
             train_transform_list.append(Compose([
                 RandomCrop(width=720, height=720, p=0.5),
-                PadIfNeeded(min_width=size[0], min_height=size[1], position="random", fill=(0, 0, 0), fill_mask=255)
+                PadIfNeeded(min_width=1024, min_height=1024, position="random", fill=(0, 0, 0), fill_mask=255)
             ]))
 
         train_transform_list.append(ToTensorV2())
@@ -486,7 +504,7 @@ def load_model(model, file_name, device):
 
 
 def get_criterion():
-    criterion = CrossEntropyLoss(ignore_label=255)
+    criterion = OhemCrossEntropyLoss(ignore_label=255)
     bd_criterion = BoundaryLoss()
     bce_criterion = BCEWithLogitsLoss()
 
@@ -596,7 +614,7 @@ def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, 
     trg_label = 1
 
     train_num_steps = min(len(src_trainloader), len(trg_trainloader))
-    val_num_steps = min(len(src_valloader), len(trg_valloader))
+    val_num_steps = len(src_valloader)
 
     train_seg_losses = []
     train_adv_losses = []
@@ -682,7 +700,7 @@ def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, 
             loss_sb = criterion(src_logits[-2], bd_label)
             
             loss_seg = loss_s + loss_b + loss_sb
-            # loss_seg.backward(retain_graph=True)
+            loss_seg.backward()
 
             cumulative_seg_loss += loss_seg.item()
 
@@ -694,13 +712,16 @@ def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, 
             lambda_adv1 = 0.0002
             lambda_adv2 = 0.001
             loss_adv = loss_adv1 * lambda_adv1 + loss_adv2 * lambda_adv2
-            # loss_adv.backward(retain_graph=True)
+            loss_adv.backward()
 
             cumulative_adv_loss += loss_adv.item()
 
 
 
             # Train Discriminant Network
+            src_logits = [t.detach() for t in src_logits]
+            trg_logits = [t.detach() for t in trg_logits]
+            
             for param in model_D1.parameters():
                 param.requires_grad = True
             for param in model_D2.parameters():
@@ -712,7 +733,7 @@ def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, 
             loss_D1_src = bce_criterion(D1_out, torch.full_like(D1_out, src_label, device=device))
             loss_D2_src = bce_criterion(D2_out, torch.full_like(D2_out, src_label, device=device))
             loss_D_src = (loss_D1_src + loss_D2_src) / 2
-            # loss_D_src.backward(retain_graph=True)
+            loss_D_src.backward()
 
             cumulative_D_loss += loss_D1_src.item() + loss_D2_src.item()
 
@@ -723,14 +744,14 @@ def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, 
             loss_D1_trg = bce_criterion(D1_out, torch.full_like(D1_out, trg_label, device=device))
             loss_D2_trg = bce_criterion(D2_out, torch.full_like(D2_out, trg_label, device=device))
             loss_D_trg = (loss_D1_trg + loss_D2_trg) / 2
-            # loss_D_trg.backward(retain_graph=True)
+            loss_D_trg.backward()
 
             cumulative_D_loss += loss_D1_trg.item() + loss_D2_trg.item()
 
 
 
             loss = loss_seg + loss_adv + loss_D_src + loss_D_trg
-            loss.backward()
+            # loss.backward()
 
 
 
@@ -938,7 +959,7 @@ def train_single_level(model, model_D2, model_number, src_trainloader, trg_train
     trg_label = 1
 
     train_num_steps = min(len(src_trainloader), len(trg_trainloader))
-    val_num_steps = min(len(src_valloader), len(trg_valloader))
+    val_num_steps = len(src_valloader)
 
     train_seg_losses = []
     train_adv_losses = []
@@ -1020,7 +1041,7 @@ def train_single_level(model, model_D2, model_number, src_trainloader, trg_train
             loss_sb = criterion(src_logits[-2], bd_label)
             
             loss_seg = loss_s + loss_b + loss_sb
-            # loss_seg.backward(retain_graph=True)
+            loss_seg.backward()
 
             cumulative_seg_loss += loss_seg.item()
 
@@ -1029,13 +1050,21 @@ def train_single_level(model, model_D2, model_number, src_trainloader, trg_train
             loss_adv2 = bce_criterion(D2_out, torch.full_like(D2_out, src_label, device=device))
             lambda_adv2 = 0.001
             loss_adv2 = loss_adv2 * lambda_adv2
-            # loss_adv2.backward(retain_graph=True)
+            loss_adv2.backward()
 
             cumulative_adv2_loss += loss_adv2.item()
 
 
 
+
+
+
+
+
             # Train Discriminant Network
+            src_logits = [t.detach() for t in src_logits]
+            trg_logits = [t.detach() for t in trg_logits]
+
             for param in model_D2.parameters():
                 param.requires_grad = True
 
@@ -1043,7 +1072,7 @@ def train_single_level(model, model_D2, model_number, src_trainloader, trg_train
             D2_out = model_D2(F.softmax(src_logits[-2], dim=1))
             loss_D2_src = bce_criterion(D2_out, torch.full_like(D2_out, src_label, device=device))
             loss_D2_src = loss_D2_src / 2
-            # loss_D2_src.backward(retain_graph=True)
+            loss_D2_src.backward()
 
             cumulative_D2_loss += loss_D2_src.item()
 
@@ -1052,19 +1081,16 @@ def train_single_level(model, model_D2, model_number, src_trainloader, trg_train
             D2_out = model_D2(F.softmax(trg_logits[-2], dim=1))
             loss_D2_trg = bce_criterion(D2_out, torch.full_like(D2_out, trg_label, device=device))
             loss_D2_trg = loss_D2_trg / 2
-            # loss_D2_trg.backward()
+            loss_D2_trg.backward()
 
             cumulative_D2_loss += loss_D2_trg.item()
 
 
 
 
-
             
             loss = loss_seg + loss_adv2 + loss_D2_src + loss_D2_trg
-            loss.backward()
-
-
+            # loss.backward()
 
 
 
