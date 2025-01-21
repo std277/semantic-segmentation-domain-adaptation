@@ -80,14 +80,14 @@ Model name: `PIDNet_S_DACS`
 | 3       | (RC, HF, SSR)      | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9) | 20         |             |             |
 
 
-| VERSION | DATA AUG           | SRC DOMAIN | BATCH SIZE | CRITERION        | OPTIMIZER                                | SCHEDULER                         | NUM_EPOCHS | mIoU (%) (Urban) | mIoU (%) (Rural) |
-|---------|--------------------|------------|------------|------------------|------------------------------------------|-----------------------------------|------------|------------------|------------------|
-| 0       | -                  | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9) | 20         | 34.12            | 16.52            |
-| 1       | (RC)               | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9) | 20         | 32.56            | 18.62            |
-| 2       | (RC, CJ, GB)       | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9) | 20         |             |             |
-| 3       | (RC, HF, SSR)      | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9) | 20         |             |             |
-| 4       | (CJ, GB)           | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9) | 20         | 37.48            | 19.54            |
-| 5       | (HF, SSR)          | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9) | 20         | 36.11            | 19.71            |
+| VERSION | DATA AUG           | SRC DOMAIN | BATCH SIZE | CRITERION            | OPTIMIZER                                | SCHEDULER                         | NUM_EPOCHS | mIoU (%) (Urban) | mIoU (%) (Rural) |
+|---------|--------------------|------------|------------|----------------------|------------------------------------------|-----------------------------------|------------|------------------|------------------|
+| 0       | -                  | Urban      | 6          | OhemCrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9) | 20         | 34.12            | 16.52            |
+| 1       | (RC)               | Urban      | 6          | OhemCrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9) | 20         | 33.11            | 16.49            |
+| 2       | (RC, CJ, GB)       | Urban      | 6          | OhemCrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9) | 20         |             |             |
+| 3       | (RC, HF, SSR)      | Urban      | 6          | OhemCrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9) | 20         |             |             |
+| 4       | (CJ, GB)           | Urban      | 6          | OhemCrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9) | 20         | 37.48            | 19.54            |
+| 5       | (HF, SSR)          | Urban      | 6          | OhemCrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9) | 20         | 36.11            | 19.71            |
 
 
 
