@@ -102,7 +102,7 @@ python3 sem_seg_da_adv.py \
     --horizontal_flip_augmentation \
     --shift_scale_rotate_augmentation \
     --batch_size 6 \
-    --epochs 30
+    --epochs 20
 
 #     --random_crop_augmentation \
 

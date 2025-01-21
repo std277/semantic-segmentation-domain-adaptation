@@ -378,7 +378,7 @@ def log_training_setup(device, args, monitor):
     monitor.log(f"Batch size: {args.batch_size}\n")
 
     monitor.log(f"Criterion: OhemCrossEntropyLoss\n")
-    monitor.log(f"Criterion (Discriminator): BCEWithLogitsLoss\n")
+    monitor.log(f"Criterion (D): BCEWithLogitsLoss\n")
 
     monitor.log(f"Optimizer:\nSGD (")
     monitor.log(f"    lr: {args.lr}")
@@ -386,13 +386,18 @@ def log_training_setup(device, args, monitor):
     monitor.log(f"    weight_decay: {args.weight_decay}")
     monitor.log(")\n")
 
-    monitor.log(f"Optimizer (Discriminator):\nAdam (")
+    monitor.log(f"Optimizer (D):\nAdam (")
     monitor.log(f"    lr: {args.lr_D}")
     monitor.log(f"    betas: (0.9, 0.99)")
     monitor.log(")\n")
 
     monitor.log(f"Scheduler:\nPolynomialLR (")
     monitor.log(f"    lr: {args.lr}")
+    monitor.log(f"    power: {args.power}")
+    monitor.log(")\n")
+
+    monitor.log(f"Scheduler (D):\nPolynomialLR (")
+    monitor.log(f"    lr: {args.lr_D}")
     monitor.log(f"    power: {args.power}")
     monitor.log(")\n")
 
@@ -721,7 +726,7 @@ def train_multi_level(model, model_D1, model_D2, model_number, src_trainloader, 
             # Train Discriminant Network
             src_logits = [t.detach() for t in src_logits]
             trg_logits = [t.detach() for t in trg_logits]
-            
+
             for param in model_D1.parameters():
                 param.requires_grad = True
             for param in model_D2.parameters():
