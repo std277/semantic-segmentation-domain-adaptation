@@ -359,11 +359,11 @@ def log_training_setup(device, args, monitor):
     if args.gaussian_blur_augmentation:
         monitor.log("- GaussianBlur(blur_limit=(3, 7), p=0.5)")
     if args.random_crop_augmentation:
-        monitor.log("- RandomCrop(width=512, height=512, p=1.0) PadIfNeeded(min_width=size[0], min_height=size[1], position='random', fill=(0, 0, 0), fill_mask=255)")
+        monitor.log("- RandomCrop(width=512, height=512, p=1.0)")
 
     monitor.log(f"Batch size: {args.batch_size}\n")
 
-    monitor.log(f"Criterion: OhemCrossEntropyLoss\n")
+    monitor.log(f"Criterion: CrossEntropyLoss\n")
 
     monitor.log(f"Optimizer:\nSGD (")
     monitor.log(f"    lr: {args.lr}")
@@ -400,10 +400,7 @@ def dataset_preprocessing(domain, batch_size, args):
     if args.random_crop_augmentation:
         train_transform = Compose([
             Normalize(mean=MEAN, std=STD, always_apply=True),
-            Compose([
-                RandomCrop(width=512, height=512, p=1.0),
-                PadIfNeeded(min_width=1024, min_height=1024, position="random", fill=(0, 0, 0), fill_mask=255)
-            ]),
+            RandomCrop(width=512, height=512, p=1.0),
             ToTensorV2()
         ])
 
@@ -499,7 +496,7 @@ def load_model(model, file_name, device):
 
 
 def get_criterion():
-    criterion = OhemCrossEntropyLoss(ignore_label=255)
+    criterion = CrossEntropyLoss(ignore_label=255)
     bd_criterion = BoundaryLoss()
 
     return criterion, bd_criterion

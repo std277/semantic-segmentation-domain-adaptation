@@ -94,29 +94,29 @@
 #     --batch_size 6 \
 #     --epochs 30
 
-python3 sem_seg_da_adv.py \
-    --train \
-    --mode single_level \
-    --model_name PIDNet_S \
-    --version T \
-    --horizontal_flip_augmentation \
-    --shift_scale_rotate_augmentation \
-    --batch_size 6 \
-    --epochs 20
-
-#     --random_crop_augmentation \
-
-
-# python3 sem_seg_dacs.py \
+# python3 sem_seg_da_adv.py \
 #     --train \
+#     --mode single_level \
 #     --model_name PIDNet_S \
 #     --version T \
 #     --horizontal_flip_augmentation \
 #     --shift_scale_rotate_augmentation \
-#     --random_crop_augmentation \
 #     --batch_size 6 \
-#     --patience 10 \
-#     --epochs 30
+#     --epochs 20
+
+#     --random_crop_augmentation \
+
+
+python3 sem_seg_dacs.py \
+    --train \
+    --model_name PIDNet_S \
+    --version T \
+    --horizontal_flip_augmentation \
+    --shift_scale_rotate_augmentation \
+    --random_crop_augmentation \
+    --batch_size 2 \
+    --patience 10 \
+    --epochs 30
 
     # --grid_distortion_augmentation \
     # --color_jitter_augmentation \

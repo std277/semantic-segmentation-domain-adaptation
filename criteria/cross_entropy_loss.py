@@ -9,7 +9,8 @@ class CrossEntropyLoss(nn.Module):
         self.ignore_label = ignore_label
         self.criterion = nn.CrossEntropyLoss(
             weight=weight,
-            ignore_index=ignore_label
+            ignore_index=ignore_label,
+            reduction='none'
         )
 
     def _forward(self, score, target):
@@ -21,14 +22,15 @@ class CrossEntropyLoss(nn.Module):
     def forward(self, score, target, balance_weights=[0.4, 1.0], sb_weights=1.0, pixel_wise_weights = None):
 
         if not (isinstance(score, list) or isinstance(score, tuple)):
-            return sb_weights * self._forward(score, target)
+            return torch.mean(sb_weights * self._forward(score, target))
         else:
             if len(balance_weights) == len(score):
-                loss = sum([w * self._forward(x, target) for (w, x) in zip(balance_weights, score)])
                 if pixel_wise_weights is not None:
+                    loss = sum([w * self._forward(x, target) for (w, x) in zip(balance_weights, score)])
                     return torch.mean(loss * pixel_wise_weights)
                 else:
-                    return loss
+                    loss = sum([w * self._forward(x, target) for (w, x) in zip(balance_weights, score)])
+                    return torch.mean(loss)
             elif len(score) == 1:
                 return sb_weights * self._forward(score[0], target)
             else:
