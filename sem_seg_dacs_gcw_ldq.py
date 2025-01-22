@@ -229,6 +229,27 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--pseudo_threshold",
+        type=float,
+        default=0.7,
+        help=f"Specify the threshold for pseudo labels quality in LDQ.",
+    )
+
+    parser.add_argument(
+        "--pseudo_kernel_size",
+        type=int,
+        default=3,
+        help=f"Specify the kernel size for LDQ.",
+    )
+
+    parser.add_argument(
+        "--pseudo_weights_type",
+        type=str,
+        default="label",
+        help=f"Specify the type of LDQ weights generation (label/class).",
+    )
+
+    parser.add_argument(
         "--epochs",
         type=int,
         default=20,
@@ -581,79 +602,91 @@ def compute_mIoU(predictions, masks, num_classes):
 
 
 
-# def get_dynamic_class_weight(self, labels, T=0.1, alpha=0.9):
-#     """Calulate weight for each class.
+def get_dynamic_class_weight(class_weights, labels, num_classes, T=0.1, alpha=0.9):
+    """Calulate weight for each class.
     
-#     Args:
-#     labels: (batch_size, 1, H, W)
-#     T : Temperature. Greater one leads to a uniform distribution, 
-#         smaller one pay more attention to the one occur less
-#     alpha: The importance of current states. Refered as beta in our paper.
-#     Return:
-#     weights (Tensor): (batch_size, H, W)
-#     """
-#     labels = labels.detach()
-#     bs = labels.shape[0]
+    Args:
+    labels: (batch_size, 1, H, W)
+    T : Temperature. Greater one leads to a uniform distribution, 
+        smaller one pay more attention to the one occur less
+    alpha: The importance of current states. Refered as beta in our paper.
+    Return:
+    weights (Tensor): (batch_size, H, W)
+    """
+    labels = labels.detach()
+    bs = labels.shape[0]
 
-#     if self.class_weights is None:
-#         self.class_weights = torch.ones(self.num_classes, 1, device=labels.device)
+    if class_weights is None:
+        class_weights = torch.ones(num_classes, 1, device=labels.device)
 
-#     masks = torch.stack([(labels == c) for \
-#         c in range(self.num_classes)]).squeeze(2) # (num_class, bs, H, W)
-#     freq = masks.sum(dim=(2,3)) / masks.sum(dim=(0,2,3)) # (num_class, bs)
-#     e_1_minus_freq = torch.exp( (1-freq+1e-6)/T )
-#     cur_class_weights = e_1_minus_freq / e_1_minus_freq.sum(dim=0) * self.num_classes # (num_class, bs)
-#     assert not torch.isnan(cur_class_weights).any(), 'freq : {}\ne_1_minus_freq: {}'.format(freq, e_1_minus_freq)
+    masks = torch.stack([(labels == c) for \
+        c in range(num_classes)]).squeeze(2) # (num_class, bs, H, W)
+    freq = masks.sum(dim=(2,3)) / masks.sum(dim=(0,2,3)) # (num_class, bs)
+    e_1_minus_freq = torch.exp( (1-freq+1e-6)/T )
+    cur_class_weights = e_1_minus_freq / e_1_minus_freq.sum(dim=0) * num_classes # (num_class, bs)
+    assert not torch.isnan(cur_class_weights).any(), 'freq : {}\ne_1_minus_freq: {}'.format(freq, e_1_minus_freq)
     
-#     cur_class_weights = alpha * self.class_weights + (1-alpha) * cur_class_weights
-#     weights = (masks * cur_class_weights.view(self.num_classes, bs, 1, 1)).sum(dim=0)
+    cur_class_weights = alpha * class_weights + (1-alpha) * cur_class_weights
+    weights = (masks * cur_class_weights.view(num_classes, bs, 1, 1)).sum(dim=0)
 
-#     self.class_weights = torch.mean(cur_class_weights, dim=1, keepdim=True)
-#     assert self.class_weights.shape == (self.num_classes, 1)
+    class_weights = torch.mean(cur_class_weights, dim=1, keepdim=True)
+    #assert self.class_weights.shape == (self.num_classes, 1)
 
-#     return weights
+    return weights, class_weights           # update the class weights at every iteration
 
-# def generate_local_pseudo_weight(self, pseudo_label, pseudo_prob, num_classes=None, type='label'):
-#     """
-#     Args:
-#         pseudo_label (Tensor) : (batch, H, W)
-#         pseudo_prob (Tensor) : (batch, H, W)
-#         num_classes (int)
-#         type (str) : If type = 'label', count valid pseudo label around.
-#                         If type = 'class', count same pseudo label around.
-#     """
-#     dev = pseudo_label.device
-#     k_size = self.pseudo_kernal_size
-#     # assert len(pseudo_label.shape) == 3, 'pseudo_label should have only 3 dimensions'
+def generate_local_kernel(num_classes, k_size, device, type='label'):
+    if type == 'class':
+        local_kernel = torch.ones((num_classes, 1, k_size, k_size), dtype=torch.float, device=device, requires_grad=False)
+    elif type == 'label':
+        local_kernel = torch.ones((1, 1, k_size, k_size), dtype=torch.float, device=device, requires_grad=False)
+    else:
+        local_kernel = None
+    return local_kernel
 
-#     if type == 'class':
-#         p_one_hot = one_hot(pseudo_label, num_classes).permute(0,3,1,2).float()
-#         if self.local_kernel is None: # initialize only once
-#             self.local_kernel = torch.ones((num_classes, 1, k_size, k_size), 
-#                 dtype=torch.float, device=dev, requires_grad=False)
-#         conv_p = conv2d(p_one_hot, self.local_kernel, bias=None, 
-#             stride=1, padding='same', groups=num_classes)
-#         neighbor_cnt = conv_p.sum(dim=1)
-#         pseudo_weight = conv_p / neighbor_cnt.unsqueeze(1)
-#         pseudo_weight = torch.gather(pseudo_weight, dim=1, 
-#             index=pseudo_label.unsqueeze(1)).squeeze(1) # (batch, H, W)
-#     elif type == 'label':
-#         if len(pseudo_prob.shape) == 3:
-#             pseudo_prob = pseudo_prob.unsqueeze(1)
+def generate_local_pseudo_weight(args, pseudo_label, pseudo_prob, local_kernel, num_classes=None):
+    """
+    Args:
+        pseudo_label (Tensor) : (batch, H, W)
+        pseudo_prob (Tensor) : (batch, H, W)
+        num_classes (int)
+        type (str) : If type = 'label', count valid pseudo label around.
+                        If type = 'class', count same pseudo label around.
+    """
+    dev = pseudo_label.device
+    # assert len(pseudo_label.shape) == 3, 'pseudo_label should have only 3 dimensions'
 
-#         if self.local_kernel is None: # initialize only once
-#             self.local_kernel = torch.ones((1, 1, k_size, k_size), 
-#                 dtype=torch.float, device=dev, requires_grad=False)
-#         ps_large_p = pseudo_prob.ge(self.pseudo_threshold).float()
-#         ps_conv = conv2d(ps_large_p, self.local_kernel, bias=None, 
-#             stride=1, padding='same').squeeze(1)
-#         pseudo_weight = ps_conv / k_size**2
-#     elif type == None: # used for debug
-#         pseudo_weight = torch.ones(pseudo_prob.shape, device=dev)
-#     else:
-#         raise NotImplementedError
+    k_size = args.pseudo_kernel_size
+    type = args.pseudo_weights_type
+    pseudo_threshold = args.pseudo_threshold
+
+    if type == 'class':
+        p_one_hot = F.one_hot(pseudo_label, num_classes).permute(0,3,1,2).float()
+        # if self.local_kernel is None: # initialize only once
+        #     self.local_kernel = torch.ones((num_classes, 1, k_size, k_size), 
+        #         dtype=torch.float, device=dev, requires_grad=False)
+        conv_p = F.conv2d(p_one_hot, local_kernel, bias=None, 
+            stride=1, padding='same', groups=num_classes)
+        neighbor_cnt = conv_p.sum(dim=1)
+        pseudo_weight = conv_p / neighbor_cnt.unsqueeze(1)
+        pseudo_weight = torch.gather(pseudo_weight, dim=1, 
+            index=pseudo_label.unsqueeze(1)).squeeze(1) # (batch, H, W)
+    elif type == 'label':
+        if len(pseudo_prob.shape) == 3:
+            pseudo_prob = pseudo_prob.unsqueeze(1)
+
+        # if self.local_kernel is None: # initialize only once
+        #     self.local_kernel = torch.ones((1, 1, k_size, k_size), 
+        #         dtype=torch.float, device=dev, requires_grad=False)
+        ps_large_p = pseudo_prob.ge(pseudo_threshold).float()
+        ps_conv = F.conv2d(ps_large_p, local_kernel, bias=None, 
+            stride=1, padding='same').squeeze(1)
+        pseudo_weight = ps_conv / k_size**2
+    elif type == None: # used for debug
+        pseudo_weight = torch.ones(pseudo_prob.shape, device=dev)
+    else:
+        raise NotImplementedError
         
-#     return pseudo_weight
+    return pseudo_weight
 
 
 
@@ -681,6 +714,11 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
     best_val_mIoU = None
     patience_counter = 0
 
+    # initialize dynamic GCW vector
+    gradual_class_weights = None
+    # initialize LDQ kernel
+    local_kernel = None
+    
     for e in range(init_epoch-1, epochs):
         # Training
         monitor.start(desc=f"Epoch {e + 1}/{epochs}", max_progress=train_num_steps)
@@ -748,9 +786,12 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
                 filler = torch.ones_like(src_transformed_masks) * 255
                 bd_label = torch.where(F.sigmoid(src_logits[-1][:,0,:,:])>0.8, src_transformed_masks, filler)
 
-                ############### ADD GCW ###############
+                # GCW
+                weights = None          # if no GCW, no weights are needed to compute the loss
+                if args.gcw:
+                    weights, gradual_class_weights = get_dynamic_class_weight(gradual_class_weights, src_masks, src_logits[-2].shape[1])
 
-                loss_sb = criterion(src_logits[-2], bd_label)
+                loss_sb = criterion(src_logits[-2], bd_label, pixel_wise_weights = weights)
                 
                 loss_labeled = loss_s + loss_b + loss_sb
 
@@ -772,9 +813,12 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
                 filler = torch.ones_like(src_masks) * 255
                 bd_label = torch.where(F.sigmoid(src_logits[-1][:,0,:,:])>0.8, src_masks, filler)
 
-                ############### ADD GCW ###############
+                # GCW
+                weights = None          # if no GCW, no weights are needed to compute the loss
+                if args.gcw:
+                    weights, gradual_class_weights = get_dynamic_class_weight(gradual_class_weights, src_masks, src_logits[-2].shape[1])
                 
-                loss_sb = criterion(src_logits[-2], bd_label)
+                loss_sb = criterion(src_logits[-2], bd_label, pixel_wise_weights = weights)
                 
                 loss_labeled = loss_s + loss_b + loss_sb
 
@@ -800,11 +844,16 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
             trg_max_probs, trg_prediction = torch.max(torch.softmax(trg_logits[-2], dim=1), dim=1)
 
 
-            ############### CHANGE WITH LDQ ###############
-            unlabeled_weight = torch.sum(trg_max_probs.ge(0.968).long() == 1).item() / (np.size(np.array(trg_logits[-2].cpu())) * args.batch_size)
-            pixel_wise_weights = unlabeled_weight * torch.ones(trg_max_probs.shape).to(device)
-            ############### CHANGE WITH LDQ ###############
-
+            # LDQ
+            if args.ldq:
+                # initialize the local kernel only once at the first iteration
+                if local_kernel is None:
+                    local_kernel = generate_local_kernel(trg_logits[-2].shape[1], args.pseudo_kernel_size, device, type = args.pseudo_weights_type)
+                pixel_wise_weights = generate_local_pseudo_weight(args, trg_prediction, trg_max_probs, local_kernel, trg_logits[-2].shape[1])
+            else:
+                unlabeled_weight = torch.sum(trg_max_probs.ge(0.968).long() == 1).item() / (np.size(np.array(trg_logits[-2].cpu())) * args.batch_size)
+                pixel_wise_weights = unlabeled_weight * torch.ones(trg_max_probs.shape).to(device)
+            
             ones_weights = torch.ones((pixel_wise_weights.shape)).to(device)
 
 
