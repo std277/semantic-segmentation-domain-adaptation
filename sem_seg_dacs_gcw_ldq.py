@@ -115,18 +115,6 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--augment_source",
-        action="store_true",
-        help="Perform data augmentation on source images."
-    )
-
-    parser.add_argument(
-        "--augment_mixed",
-        action="store_true",
-        help="Perform data augmentation on mixed images."
-    )
-
-    parser.add_argument(
         "--horizontal_flip_augmentation",
         action="store_true",
         help="Performs horizontal flip data augmentation on dataset."
@@ -214,6 +202,18 @@ def parse_args():
         type=float,
         default=0.99,
         help=f"Specify maximum alpha for ema model.",
+    )
+
+    parser.add_argument(
+        "--gcw",
+        action="store_true",
+        help="Add Gradual Class Weight for source masks."
+    )
+
+    parser.add_argument(
+        "--ldq",
+        action="store_true",
+        help="Add Local Dynamic Quality for target pseudo masks."
     )
 
     parser.add_argument(
@@ -343,7 +343,10 @@ def get_device():
 
 
 def log_training_setup(device, args, monitor):
-    monitor.log(f"Model: {args.model_name} DACS")
+    monitor.log(f"Model: {args.model_name} DACS with GCW and LDQ")
+
+    monitor.log(f"GCW: {args.gcw}")
+    monitor.log(f"LDQ: {args.ldq}")
 
     monitor.log(f"Device: {device}")
     if torch.cuda.is_available():
@@ -566,6 +569,84 @@ def compute_mIoU(predictions, masks, num_classes):
 
 
 
+def get_dynamic_class_weight(self, labels, T=0.1, alpha=0.9):
+    """Calulate weight for each class.
+    
+    Args:
+    labels: (batch_size, 1, H, W)
+    T : Temperature. Greater one leads to a uniform distribution, 
+        smaller one pay more attention to the one occur less
+    alpha: The importance of current states. Refered as beta in our paper.
+    Return:
+    weights (Tensor): (batch_size, H, W)
+    """
+    labels = labels.detach()
+    bs = labels.shape[0]
+
+    if self.class_weights is None:
+        self.class_weights = torch.ones(self.num_classes, 1, device=labels.device)
+
+    masks = torch.stack([(labels == c) for \
+        c in range(self.num_classes)]).squeeze(2) # (num_class, bs, H, W)
+    freq = masks.sum(dim=(2,3)) / masks.sum(dim=(0,2,3)) # (num_class, bs)
+    e_1_minus_freq = torch.exp( (1-freq+1e-6)/T )
+    cur_class_weights = e_1_minus_freq / e_1_minus_freq.sum(dim=0) * self.num_classes # (num_class, bs)
+    assert not torch.isnan(cur_class_weights).any(), 'freq : {}\ne_1_minus_freq: {}'.format(freq, e_1_minus_freq)
+    
+    cur_class_weights = alpha * self.class_weights + (1-alpha) * cur_class_weights
+    weights = (masks * cur_class_weights.view(self.num_classes, bs, 1, 1)).sum(dim=0)
+
+    self.class_weights = torch.mean(cur_class_weights, dim=1, keepdim=True)
+    assert self.class_weights.shape == (self.num_classes, 1)
+
+    return weights
+
+def generate_local_pseudo_weight(self, pseudo_label, pseudo_prob, num_classes=None, type='label'):
+    """
+    Args:
+        pseudo_label (Tensor) : (batch, H, W)
+        pseudo_prob (Tensor) : (batch, H, W)
+        num_classes (int)
+        type (str) : If type = 'label', count valid pseudo label around.
+                        If type = 'class', count same pseudo label around.
+    """
+    dev = pseudo_label.device
+    k_size = self.pseudo_kernal_size
+    # assert len(pseudo_label.shape) == 3, 'pseudo_label should have only 3 dimensions'
+
+    if type == 'class':
+        p_one_hot = one_hot(pseudo_label, num_classes).permute(0,3,1,2).float()
+        if self.local_kernel is None: # initialize only once
+            self.local_kernel = torch.ones((num_classes, 1, k_size, k_size), 
+                dtype=torch.float, device=dev, requires_grad=False)
+        conv_p = conv2d(p_one_hot, self.local_kernel, bias=None, 
+            stride=1, padding='same', groups=num_classes)
+        neighbor_cnt = conv_p.sum(dim=1)
+        pseudo_weight = conv_p / neighbor_cnt.unsqueeze(1)
+        pseudo_weight = torch.gather(pseudo_weight, dim=1, 
+            index=pseudo_label.unsqueeze(1)).squeeze(1) # (batch, H, W)
+    elif type == 'label':
+        if len(pseudo_prob.shape) == 3:
+            pseudo_prob = pseudo_prob.unsqueeze(1)
+
+        if self.local_kernel is None: # initialize only once
+            self.local_kernel = torch.ones((1, 1, k_size, k_size), 
+                dtype=torch.float, device=dev, requires_grad=False)
+        ps_large_p = pseudo_prob.ge(self.pseudo_threshold).float()
+        ps_conv = conv2d(ps_large_p, self.local_kernel, bias=None, 
+            stride=1, padding='same').squeeze(1)
+        pseudo_weight = ps_conv / k_size**2
+    elif type == None: # used for debug
+        pseudo_weight = torch.ones(pseudo_prob.shape, device=dev)
+    else:
+        raise NotImplementedError
+        
+    return pseudo_weight
+
+
+
+
+
 
 def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_valloader, trg_valloader, transform, criterion, bd_criterion, \
            optimizer, scheduler, epochs, init_epoch, patience, device, monitor, res_dir, args):
@@ -617,69 +698,72 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
 
             # Train Segmentation Network with Labeled data
 
-            if args.augment_source:
-                src_transformed_images = []
-                src_transformed_masks = []
-                for j in range(src_images.shape[0]):
-                    image = src_images[j]
-                    mask = src_masks[j]
+            src_transformed_images = []
+            src_transformed_masks = []
+            for j in range(src_images.shape[0]):
+                image = src_images[j]
+                mask = src_masks[j]
 
-                    image = image.squeeze(0).cpu().numpy().transpose((1, 2, 0))             
-                    mask = mask.squeeze(0).cpu().numpy()
+                image = image.squeeze(0).cpu().numpy().transpose((1, 2, 0))             
+                mask = mask.squeeze(0).cpu().numpy()
 
-                    transformation = transform(image=image, mask=mask)
-                    image, mask = transformation['image'], transformation['mask']
-                    mask = mask.long()
+                transformation = transform(image=image, mask=mask)
+                image, mask = transformation['image'], transformation['mask']
+                mask = mask.long()
 
-                    src_transformed_images.append(image)
-                    src_transformed_masks.append(mask)
+                src_transformed_images.append(image)
+                src_transformed_masks.append(mask)
 
-                src_transformed_images = torch.stack(src_transformed_images).to(device)
-                src_transformed_masks = torch.stack(src_transformed_masks).to(device)
-
+            src_transformed_images = torch.stack(src_transformed_images).to(device)
+            src_transformed_masks = torch.stack(src_transformed_masks).to(device)
 
 
 
-                src_logits = model(src_transformed_images)
-                
-                h, w = src_transformed_masks.size(1), src_transformed_masks.size(2)
-                ph, pw = src_logits[0].size(2), src_logits[0].size(3)
-                if ph != h or pw != w:
-                    for j in range(len(src_logits)):
-                        src_logits[j] = F.interpolate(src_logits[j], size=(h, w), mode='bilinear', align_corners=False)
+            # src_logits = model(src_transformed_images)
+            
+            # h, w = src_transformed_masks.size(1), src_transformed_masks.size(2)
+            # ph, pw = src_logits[0].size(2), src_logits[0].size(3)
+            # if ph != h or pw != w:
+            #     for j in range(len(src_logits)):
+            #         src_logits[j] = F.interpolate(src_logits[j], size=(h, w), mode='bilinear', align_corners=False)
 
 
-                loss_s = criterion(src_logits[:-1], src_transformed_masks, balance_weights=[0.4, 1.0])
-                loss_b = bd_criterion(src_logits[-1], src_boundaries)
+            # loss_s = criterion(src_logits[:-1], src_transformed_masks, balance_weights=[0.4, 1.0])
+            # loss_b = bd_criterion(src_logits[-1], src_boundaries)
 
-                filler = torch.ones_like(src_transformed_masks) * 255
-                bd_label = torch.where(F.sigmoid(src_logits[-1][:,0,:,:])>0.8, src_transformed_masks, filler)
-                loss_sb = criterion(src_logits[-2], bd_label)
-                
-                loss_labeled = loss_s + loss_b + loss_sb
+            # filler = torch.ones_like(src_transformed_masks) * 255
+            # bd_label = torch.where(F.sigmoid(src_logits[-1][:,0,:,:])>0.8, src_transformed_masks, filler)
+            # loss_sb = criterion(src_logits[-2], bd_label)
+            
+            # loss_labeled = loss_s + loss_b + loss_sb
 
-                cumulative_loss_labeled += loss_labeled.item()
-
-            else:
-                src_logits = model(src_images)
-
-                h, w = src_masks.size(1), src_masks.size(2)
-                ph, pw = src_logits[0].size(2), src_logits[0].size(3)
-                if ph != h or pw != w:
-                    for j in range(len(src_logits)):
-                        src_logits[j] = F.interpolate(src_logits[j], size=(h, w), mode='bilinear', align_corners=False)
+            # cumulative_loss_labeled += loss_labeled.item()
 
 
-                loss_s = criterion(src_logits[:-1], src_masks, balance_weights=[0.4, 1.0])
-                loss_b = bd_criterion(src_logits[-1], src_boundaries)
+            
+            src_logits = model(src_images)
 
-                filler = torch.ones_like(src_masks) * 255
-                bd_label = torch.where(F.sigmoid(src_logits[-1][:,0,:,:])>0.8, src_masks, filler)
-                loss_sb = criterion(src_logits[-2], bd_label)
-                
-                loss_labeled = loss_s + loss_b + loss_sb
+            h, w = src_masks.size(1), src_masks.size(2)
+            ph, pw = src_logits[0].size(2), src_logits[0].size(3)
+            if ph != h or pw != w:
+                for j in range(len(src_logits)):
+                    src_logits[j] = F.interpolate(src_logits[j], size=(h, w), mode='bilinear', align_corners=False)
 
-                cumulative_loss_labeled += loss_labeled.item()
+
+            loss_s = criterion(src_logits[:-1], src_masks, balance_weights=[0.4, 1.0])
+            loss_b = bd_criterion(src_logits[-1], src_boundaries)
+
+            filler = torch.ones_like(src_masks) * 255
+            bd_label = torch.where(F.sigmoid(src_logits[-1][:,0,:,:])>0.8, src_masks, filler)
+
+
+            ############### ADD GCW ###############
+
+            loss_sb = criterion(src_logits[-2], bd_label)
+            
+            loss_labeled = loss_s + loss_b + loss_sb
+
+            cumulative_loss_labeled += loss_labeled.item()
 
 
 
@@ -701,8 +785,11 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
             trg_max_probs, trg_prediction = torch.max(torch.softmax(trg_logits[-2], dim=1), dim=1)
 
 
+            ############### CHANGE WITH LDQ ###############
             unlabeled_weight = torch.sum(trg_max_probs.ge(0.968).long() == 1).item() / (np.size(np.array(trg_logits[-2].cpu())) * args.batch_size)
             pixel_wise_weights = unlabeled_weight * torch.ones(trg_max_probs.shape).to(device)
+            ############### CHANGE WITH LDQ ###############
+
             ones_weights = torch.ones((pixel_wise_weights.shape)).to(device)
 
 
@@ -727,24 +814,18 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
                     target=torch.cat((ones_weights[j].unsqueeze(0), pixel_wise_weights[j].unsqueeze(0)))
                 )
 
-                image = image.squeeze(0)         
-                mask = mask.squeeze(0)
-                weight = weight.squeeze(0)
+                image = image.squeeze(0).cpu().numpy().transpose((1, 2, 0))             
+                mask = mask.squeeze(0).cpu().numpy()
+                weight = weight.squeeze(0).cpu().numpy()
 
-                if args.augment_mixed:
-                    image = image.cpu().numpy().transpose((1, 2, 0))             
-                    mask = mask.cpu().numpy()
-                    weight = weight.cpu().numpy()
+                weight = weight - 1 # PADDING IN TRANSFORMATIONS FILLED WITH 255 (-1)
+                transformation = transform(image=image, masks=[mask, weight])
+                image = transformation['image']
+                mask, weight = transformation['masks']
 
+                weight = weight + 1 # PADDING IN TRANSFORMATIONS FILLED WITH 255 (-1)
 
-                    weight = weight - 1 # PADDING IN TRANSFORMATIONS FILLED WITH 255 (-1)
-                    transformation = transform(image=image, masks=[mask, weight])
-                    image = transformation['image']
-                    mask, weight = transformation['masks']
-
-                    weight = weight + 1 # PADDING IN TRANSFORMATIONS FILLED WITH 255 (-1)
-
-                    mask = mask.long()
+                mask = mask.long()
 
                 mixed_images.append(image)
                 mixed_masks.append(mask)
