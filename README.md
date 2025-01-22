@@ -5,8 +5,6 @@ Real-time Domain Adaptation in Semantic Segmentation
 
 ### DeepLabV2_ResNet101
 
-Resizing: (512, 512)
-
 | VERSION | DATA AUG           | SRC DOMAIN | BATCH SIZE | CRITERION            | OPTIMIZER                                | SCHEDULER                           | NUM_EPOCHS | mIoU (%) (Urban) | mIoU (%) (Rural) |
 |---------|--------------------|------------|------------|----------------------|------------------------------------------|-------------------------------------|------------|------------------|------------------|
 | 0       | -                  | Rural      | 6          | CrossEntropyLoss     | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9)   | 20         | 22.88            | 19.93            |
