@@ -74,8 +74,8 @@ Standard deviation of inference time: 2.625 ms
 | 1       | (RC-ALL)                  | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9) | 20         | 35.26            | 20.83            |
 | 2       | (RC-ALL, CJ-MXD, GB-MXD)  | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9) | 20         | 36.20            | 21.48            |
 | 3       | (RC-ALL, HF-MXD, SSR-MXD) | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9) | 20         | 35.82            | 21.82            |
-| 4       | (RC-ALL, CJ-ALL, GB-ALL)  | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9) | 20         | 36.20            | 21.48            |
-| 5       | (RC-ALL, HF-ALL, SSR-ALL) | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9) | 20         | 35.82            | 21.82            |
+| 4       | (RC-ALL, CJ-ALL, GB-ALL)  | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9) | 20         |             |             |
+| 5       | (RC-ALL, HF-ALL, SSR-ALL) | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9) | 20         |             |             |
 
 
 
