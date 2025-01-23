@@ -789,9 +789,9 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
                 # GCW
                 pixel_wise_weights = None
                 if args.gcw:
-                    pixel_wise_weights, gradual_class_weights = get_dynamic_class_weight(gradual_class_weights, src_masks, src_logits[-2].shape[1])
+                    pixel_wise_weights, gradual_class_weights = get_dynamic_class_weight(gradual_class_weights, src_masks, NUM_CLASSES)
 
-                loss_sb = criterion(src_logits[-2], bd_label, pixel_wise_weights = gcw_weights)
+                loss_sb = criterion(src_logits[-2], bd_label, pixel_wise_weights = pixel_wise_weights)
                 
                 loss_labeled = loss_s + loss_b + loss_sb
 
@@ -816,7 +816,7 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
                 # GCW
                 pixel_wise_weights = None
                 if args.gcw:
-                    pixel_wise_weights, gradual_class_weights = get_dynamic_class_weight(gradual_class_weights, src_masks, src_logits[-2].shape[1])
+                    pixel_wise_weights, gradual_class_weights = get_dynamic_class_weight(gradual_class_weights, src_masks, NUM_CLASSES)
                 
                 loss_sb = criterion(src_logits[-2], bd_label, pixel_wise_weights = pixel_wise_weights)
                 
