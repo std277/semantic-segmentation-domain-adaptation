@@ -68,15 +68,29 @@ Standard deviation of inference time: 2.625 ms
 
 ### PIDNet_S_DACS
 
-| VERSION | DATA AUG (DA-TARGET) | SRC DOMAIN | BATCH SIZE | CRITERION        | OPTIMIZER                                | SCHEDULER                         | NUM_EPOCHS | mIoU (%) (Urban) | mIoU (%) (Rural) |
-|---------|---------------------------|------------|------------|------------------|------------------------------------------|-----------------------------------|------------|------------------|------------------|
-| 0       | -                         | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9) | 20         | 35.50            | 17.79            |
-| 1       | (RC-ALL)                  | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9) | 20         | 35.26            | 20.83            |
-| 2       | (RC-ALL, CJ-MXD, GB-MXD)  | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9) | 20         | 36.20            | 21.48            |
-| 3       | (RC-ALL, HF-MXD, SSR-MXD) | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9) | 20         | 35.82            | 21.82            |
-| 4       | (RC-ALL, CJ-ALL, GB-ALL)  | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9) | 20         |             |             |
-| 5       | (RC-ALL, HF-ALL, SSR-ALL) | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9) | 20         |             |             |
+| VERSION | DATA AUG (DA-TARGET)      | SRC DOMAIN | BATCH SIZE | CRITERION        | OPTIMIZER                                | SCHEDULER                          | NUM_EPOCHS | mIoU (%) (Urban) | mIoU (%) (Rural) |
+|---------|---------------------------|------------|------------|------------------|------------------------------------------|------------------------------------|------------|------------------|------------------|
+| 0       | -                         | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9)  | 20         | 35.50            | 17.79            |
+| 1       | (RC-ALL)                  | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9)  | 20         | 35.26            | 20.83            |
+| 2       | (RC-ALL, CJ-MXD, GB-MXD)  | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9)  | 20         | 36.20            | 21.48            |
+| 3       | (RC-ALL, HF-MXD, SSR-MXD) | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9)  | 20         | 35.82            | 21.82            |
+| 4       | (RC-ALL, CJ-ALL, GB-ALL)  | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9)  | 20         | 31.39            | 17.54            |
+| 5       | (RC-ALL, HF-ALL, SSR-ALL) | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9)  | 20         | 33.19            | 19.72            |
+| X       | (RC-ALL, HF-MXD, SSR-MXD) | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.0001, power=0.9) | 200        |             |             |
 
+
+
+### PIDNet_S_DACS_GCW_LDQ
+
+| VERSION | TECHNIQUES   | DATA AUG (DA-TARGET)      | SRC DOMAIN | BATCH SIZE | CRITERION        | OPTIMIZER                                | SCHEDULER                          | NUM_EPOCHS | mIoU (%) (Urban) | mIoU (%) (Rural) |
+|---------|--------------|---------------------------|------------|------------|------------------|------------------------------------------|------------------------------------|------------|------------------|------------------|
+| 0       | (GCW)        | (RC-ALL)                  | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9)  | 20         | 34.23            | 18.98            |
+| 1       | (LDQ)        | (RC-ALL)                  | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9)  | 20         | 33.44            | 17.44            |
+| 2       | (GCW, LDQ)   | (RC-ALL)                  | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9)  | 20         | 32.81            | 17.42            |
+| 3       | (GCW)        | (RC-ALL, HF-MXD, SSR-MXD) | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9)  | 20         |             |             |
+| 4       | (LDQ)        | (RC-ALL, HF-MXD, SSR-MXD) | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9)  | 20         |             |             |
+| 5       | (GCW, LDQ)   | (RC-ALL, HF-MXD, SSR-MXD) | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9)  | 20         |             |             |
+| X       | (GCW, LDQ)   | (RC-ALL, HF-MXD, SSR-MXD) | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.0001, power=0.9) | 200        |             |             |
 
 
 

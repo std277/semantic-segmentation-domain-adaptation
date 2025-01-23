@@ -736,13 +736,11 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
                     mask = mask.cpu().numpy()
                     weight = weight.cpu().numpy()
 
-
-                    weight = weight - 1 # PADDING IN TRANSFORMATIONS FILLED WITH 255 (-1)
                     transformation = transform(image=image, masks=[mask, weight])
                     image = transformation['image']
                     mask, weight = transformation['masks']
 
-                    weight = weight + 1 # PADDING IN TRANSFORMATIONS FILLED WITH 255 (-1)
+                    weight[weight == 255] = 0
 
                     mask = mask.long()
 

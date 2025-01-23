@@ -229,21 +229,21 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--pseudo_threshold",
+        "--ldq_pseudo_threshold",
         type=float,
         default=0.7,
         help=f"Specify the threshold for pseudo labels quality in LDQ.",
     )
 
     parser.add_argument(
-        "--pseudo_kernel_size",
+        "--ldq_kernel_size",
         type=int,
         default=3,
         help=f"Specify the kernel size for LDQ.",
     )
 
     parser.add_argument(
-        "--pseudo_weights_type",
+        "--ldq_kernel_type",
         type=str,
         default="label",
         help=f"Specify the type of LDQ weights generation (label/class).",
@@ -298,7 +298,7 @@ def make_results_dir(store, model_name, version, resume):
 
     os.makedirs(res_dir, exist_ok=True)
 
-    dir_name = f"{model_name}_DACS_{version}"
+    dir_name = f"{model_name}_DACS_GCW_LDQ_{version}"
     if not resume:
         for file in os.listdir(res_dir):
             if file == dir_name:
@@ -318,7 +318,7 @@ def get_results_dir(store, model_name, version):
     else:
         res_dir = "res"
 
-    dir_name = f"{model_name}_DACS_{version}"
+    dir_name = f"{model_name}_DACS_GCW_LDQ_{version}"
     res_dir = f"{res_dir}/{dir_name}"
 
     return res_dir
@@ -606,7 +606,7 @@ def get_dynamic_class_weight(class_weights, labels, num_classes, T=0.1, alpha=0.
     """Calulate weight for each class.
     
     Args:
-    labels: (batch_size, 1, H, W)
+    labels: (batch_size, H, W)
     T : Temperature. Greater one leads to a uniform distribution, 
         smaller one pay more attention to the one occur less
     alpha: The importance of current states. Refered as beta in our paper.
@@ -619,8 +619,8 @@ def get_dynamic_class_weight(class_weights, labels, num_classes, T=0.1, alpha=0.
     if class_weights is None:
         class_weights = torch.ones(num_classes, 1, device=labels.device)
 
-    masks = torch.stack([(labels == c) for \
-        c in range(num_classes)]).squeeze(2) # (num_class, bs, H, W)
+    masks = torch.stack([(labels == c) for c in range(num_classes)]) # (num_class, bs, H, W)
+
     freq = masks.sum(dim=(2,3)) / masks.sum(dim=(0,2,3)) # (num_class, bs)
     e_1_minus_freq = torch.exp( (1-freq+1e-6)/T )
     cur_class_weights = e_1_minus_freq / e_1_minus_freq.sum(dim=0) * num_classes # (num_class, bs)
@@ -630,9 +630,8 @@ def get_dynamic_class_weight(class_weights, labels, num_classes, T=0.1, alpha=0.
     weights = (masks * cur_class_weights.view(num_classes, bs, 1, 1)).sum(dim=0)
 
     class_weights = torch.mean(cur_class_weights, dim=1, keepdim=True)
-    #assert self.class_weights.shape == (self.num_classes, 1)
 
-    return weights, class_weights           # update the class weights at every iteration
+    return weights, class_weights
 
 def generate_local_kernel(num_classes, k_size, device, type='label'):
     if type == 'class':
@@ -655,9 +654,9 @@ def generate_local_pseudo_weight(args, pseudo_label, pseudo_prob, local_kernel, 
     dev = pseudo_label.device
     # assert len(pseudo_label.shape) == 3, 'pseudo_label should have only 3 dimensions'
 
-    k_size = args.pseudo_kernel_size
-    type = args.pseudo_weights_type
-    pseudo_threshold = args.pseudo_threshold
+    k_size = args.ldq_kernel_size
+    type = args.ldq_kernel_type
+    ldq_pseudo_threshold = args.ldq_pseudo_threshold
 
     if type == 'class':
         p_one_hot = F.one_hot(pseudo_label, num_classes).permute(0,3,1,2).float()
@@ -677,7 +676,7 @@ def generate_local_pseudo_weight(args, pseudo_label, pseudo_prob, local_kernel, 
         # if self.local_kernel is None: # initialize only once
         #     self.local_kernel = torch.ones((1, 1, k_size, k_size), 
         #         dtype=torch.float, device=dev, requires_grad=False)
-        ps_large_p = pseudo_prob.ge(pseudo_threshold).float()
+        ps_large_p = pseudo_prob.ge(ldq_pseudo_threshold).float()
         ps_conv = F.conv2d(ps_large_p, local_kernel, bias=None, 
             stride=1, padding='same').squeeze(1)
         pseudo_weight = ps_conv / k_size**2
@@ -788,6 +787,7 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
 
                 # GCW
                 pixel_wise_weights = None
+
                 if args.gcw:
                     pixel_wise_weights, gradual_class_weights = get_dynamic_class_weight(gradual_class_weights, src_masks, NUM_CLASSES)
 
@@ -814,6 +814,7 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
                 bd_label = torch.where(F.sigmoid(src_logits[-1][:,0,:,:])>0.8, src_masks, filler)
 
                 # GCW
+
                 pixel_wise_weights = None
                 if args.gcw:
                     pixel_wise_weights, gradual_class_weights = get_dynamic_class_weight(gradual_class_weights, src_masks, NUM_CLASSES)
@@ -823,9 +824,6 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
                 loss_labeled = loss_s + loss_b + loss_sb
 
                 cumulative_loss_labeled += loss_labeled.item()
-
-
-
 
 
 
@@ -847,8 +845,8 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
             # LDQ
             if args.ldq:
                 if local_kernel is None:
-                    local_kernel = generate_local_kernel(trg_logits[-2].shape[1], args.pseudo_kernel_size, device, type = args.pseudo_weights_type)
-                pixel_wise_weights = generate_local_pseudo_weight(args, trg_prediction, trg_max_probs, local_kernel, trg_logits[-2].shape[1])
+                    local_kernel = generate_local_kernel(NUM_CLASSES, args.ldq_kernel_size, device, type = args.ldq_kernel_type)
+                pixel_wise_weights = generate_local_pseudo_weight(args, trg_prediction, trg_max_probs, local_kernel, NUM_CLASSES)
             else:
                 unlabeled_weight = torch.sum(trg_max_probs.ge(0.968).long() == 1).item() / (np.size(np.array(trg_logits[-2].cpu())) * args.batch_size)
                 pixel_wise_weights = unlabeled_weight * torch.ones(trg_max_probs.shape).to(device)
@@ -887,12 +885,11 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
                     weight = weight.cpu().numpy()
 
 
-                    weight = weight - 1 # PADDING IN TRANSFORMATIONS FILLED WITH 255 (-1)
                     transformation = transform(image=image, masks=[mask, weight])
                     image = transformation['image']
                     mask, weight = transformation['masks']
 
-                    weight = weight + 1 # PADDING IN TRANSFORMATIONS FILLED WITH 255 (-1)
+                    weight[weight == 255] = 0
 
                     mask = mask.long()
 
