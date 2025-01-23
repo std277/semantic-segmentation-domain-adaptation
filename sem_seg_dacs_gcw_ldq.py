@@ -621,7 +621,7 @@ def get_dynamic_class_weight(class_weights, labels, num_classes, T=0.1, alpha=0.
 
     masks = torch.stack([(labels == c) for c in range(num_classes)]) # (num_class, bs, H, W)
 
-    freq = masks.sum(dim=(2,3)) / masks.sum(dim=(0,2,3)) +1e-6 # (num_class, bs)
+    freq = masks.sum(dim=(2,3)) / (masks.sum(dim=(0,2,3))+1e-6) # (num_class, bs)
     e_1_minus_freq = torch.exp( (1-freq+1e-6)/T )
 
     cur_class_weights = e_1_minus_freq / e_1_minus_freq.sum(dim=0) * num_classes # (num_class, bs)
