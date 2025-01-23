@@ -625,7 +625,7 @@ def get_dynamic_class_weight(class_weights, labels, num_classes, T=0.1, alpha=0.
     for k, label in enumerate(labels):
         if (label == 255).all():
             print(f"{label=}")
-            print("MASK WITH ALL 255!!!!")
+            print(f"MASK {k} WITH ALL 255!!!!")
 
     masks = torch.stack([(labels == c) for c in range(num_classes)]) # (num_class, bs, H, W)
 
