@@ -619,28 +619,12 @@ def get_dynamic_class_weight(class_weights, labels, num_classes, T=0.1, alpha=0.
     if class_weights is None:
         class_weights = torch.ones(num_classes, 1, device=labels.device)
 
-
-    print("\n\n\n\n\n")
-
-    for k, label in enumerate(labels):
-        if (label == 255).all():
-            print(f"{label=}")
-            print(f"MASK {k} WITH ALL 255!!!!")
-
     masks = torch.stack([(labels == c) for c in range(num_classes)]) # (num_class, bs, H, W)
 
-    freq = masks.sum(dim=(2,3)) / masks.sum(dim=(0,2,3)) # (num_class, bs)
+    freq = masks.sum(dim=(2,3)) / masks.sum(dim=(0,2,3)) +1e-6 # (num_class, bs)
     e_1_minus_freq = torch.exp( (1-freq+1e-6)/T )
 
     cur_class_weights = e_1_minus_freq / e_1_minus_freq.sum(dim=0) * num_classes # (num_class, bs)
-
-    print(f"{e_1_minus_freq=}")
-    
-    if torch.isnan(cur_class_weights).any():
-        print(f"{masks.sum(dim=(2,3))}")
-        print(f"{masks.sum(dim=(0,2,3))}")
-        print(f"{e_1_minus_freq=}")
-        exit()
 
     assert not torch.isnan(cur_class_weights).any(), 'freq : {}\ne_1_minus_freq: {}'.format(freq, e_1_minus_freq)
     
