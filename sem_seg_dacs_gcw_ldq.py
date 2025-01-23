@@ -787,11 +787,11 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
                 bd_label = torch.where(F.sigmoid(src_logits[-1][:,0,:,:])>0.8, src_transformed_masks, filler)
 
                 # GCW
-                weights = None          # if no GCW, no weights are needed to compute the loss
+                pixel_wise_weights = None
                 if args.gcw:
-                    weights, gradual_class_weights = get_dynamic_class_weight(gradual_class_weights, src_masks, src_logits[-2].shape[1])
+                    pixel_wise_weights, gradual_class_weights = get_dynamic_class_weight(gradual_class_weights, src_masks, src_logits[-2].shape[1])
 
-                loss_sb = criterion(src_logits[-2], bd_label, pixel_wise_weights = weights)
+                loss_sb = criterion(src_logits[-2], bd_label, pixel_wise_weights = gcw_weights)
                 
                 loss_labeled = loss_s + loss_b + loss_sb
 
@@ -814,11 +814,11 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
                 bd_label = torch.where(F.sigmoid(src_logits[-1][:,0,:,:])>0.8, src_masks, filler)
 
                 # GCW
-                weights = None          # if no GCW, no weights are needed to compute the loss
+                pixel_wise_weights = None
                 if args.gcw:
-                    weights, gradual_class_weights = get_dynamic_class_weight(gradual_class_weights, src_masks, src_logits[-2].shape[1])
+                    pixel_wise_weights, gradual_class_weights = get_dynamic_class_weight(gradual_class_weights, src_masks, src_logits[-2].shape[1])
                 
-                loss_sb = criterion(src_logits[-2], bd_label, pixel_wise_weights = weights)
+                loss_sb = criterion(src_logits[-2], bd_label, pixel_wise_weights = pixel_wise_weights)
                 
                 loss_labeled = loss_s + loss_b + loss_sb
 
@@ -846,7 +846,6 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
 
             # LDQ
             if args.ldq:
-                # initialize the local kernel only once at the first iteration
                 if local_kernel is None:
                     local_kernel = generate_local_kernel(trg_logits[-2].shape[1], args.pseudo_kernel_size, device, type = args.pseudo_weights_type)
                 pixel_wise_weights = generate_local_pseudo_weight(args, trg_prediction, trg_max_probs, local_kernel, trg_logits[-2].shape[1])
