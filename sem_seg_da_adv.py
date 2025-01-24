@@ -1515,7 +1515,7 @@ def main():
             args=args
         )
 
-        model, _, _ = get_model(args.model_name, device)
+        model, _, _ = get_model(args, device)
         model = load_model(model, f"{res_dir}/weights/{args.model_file}", device)
 
         log_testing_setup(device, args, test_monitor)
@@ -1539,7 +1539,7 @@ def main():
             args=args
         )
 
-        model, _, _ = get_model(args.model_name, device)
+        model, _, _ = get_model(args, device)
         model = load_model(model, f"{res_dir}/weights/{args.model_file}", device)
 
         predict(
