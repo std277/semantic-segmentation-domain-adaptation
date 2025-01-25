@@ -96,6 +96,21 @@ Standard deviation of inference time: 2.625 ms
 
 
 
+
+
+### PIDNet_M experiments
+
+| TECHNIQUES   | VERSION | DATA AUG (DA-TARGET)      | SRC DOMAIN | BATCH SIZE | CRITERION        | OPTIMIZER                                | SCHEDULER                          | NUM_EPOCHS | mIoU (%) (Urban) | mIoU (%) (Rural) |
+|--------------|---------|---------------------------|------------|------------|------------------|------------------------------------------|------------------------------------|------------|------------------|------------------|
+| PIDNet       | 0       | -                         | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9)  | 30         | 39.74            | 27.41            |
+| PIDNet       | 1       | (HF, SSR, RC)             | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9)  | 30         |             |             |
+| DACS         | 0       | (RC-ALL, HF-MXD, SSR-MXD) | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9)  | 30         |             |             |
+| DACS_GCW_LDQ | 0       | (RC-ALL, HF-MXD, SSR-MXD) | Urban      | 6          | CrossEntropyLoss | SGD(momentum: 0.9 weight_decay: 0.0005)  | PolynomialLR(lr=0.001, power=0.9)  | 30         |             |             |
+
+
+
+
+
 ## Legend
 
 Data augmentation:
@@ -111,4 +126,4 @@ Data augmentation:
 Frequency:
 - ALL: All source and mixed data
 - SRC: Source data
-- MXD: Mixed data 
+- MXD: Mixed data
