@@ -1000,11 +1000,11 @@ def test(model_name, model, valloader, device, monitor):
 
             if model_name in ("DeepLabV2_ResNet101",):
                 start_time = time.perf_counter()
-                logits = model(images)
+                logits = model(images[0])
                 end_time = time.perf_counter()
             elif model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
                 start_time = time.perf_counter()
-                logits = model(images)
+                logits = model(images[0])
                 end_time = time.perf_counter()
 
                 h, w = masks.size(1), masks.size(2)
@@ -1012,7 +1012,7 @@ def test(model_name, model, valloader, device, monitor):
                 if ph != h or pw != w:
                     logits = F.interpolate(logits, size=(h, w), mode='bilinear', align_corners=False)
 
-            batch_inference_time = (end_time - start_time) / images.size(0)
+            batch_inference_time = (end_time - start_time) # / images.size(0)
             inference_times.append(batch_inference_time)
 
             predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
