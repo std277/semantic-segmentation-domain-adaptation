@@ -972,7 +972,7 @@ def train_pidnet(model, model_number, trainloader, valloader, criterion, bd_crit
 
 def test_flops(model, device, monitor):
     model.eval()
-    input = torch.randn(1, 3, 1024, 1024).to(device)
+    input = torch.randn(1, 3, 512, 512).to(device)
     with torch.no_grad():
         flops = FlopCountAnalysis(model, input)
         flops_count = flop_count_table(flops)
@@ -983,7 +983,7 @@ def test_flops(model, device, monitor):
 def test_inference_time(model, device, monitor):
     model.eval()
     iterations = None
-    input = torch.randn(1, 3, 1024, 1024).to(device)
+    input = torch.randn(1, 3, 512, 512).to(device)
     with torch.no_grad():
         for _ in range(10):
             model(input)

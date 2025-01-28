@@ -1285,43 +1285,29 @@ def train_single_level(model, model_D2, model_number, src_trainloader, trg_train
 
 
 
-def test(model_name, model, valloader, device, monitor):
+def test(model, valloader, device, monitor):
     monitor.start(desc=f"Testing", max_progress=len(valloader))
 
-    flops_count = 0
     cumulative_mIoU = 0.0
     count = 0
     test_mIoU = 0.0
-    inference_times = []
 
     cumulative_class_iou = torch.zeros(NUM_CLASSES, dtype=torch.float32)
     class_count = torch.zeros(NUM_CLASSES, dtype=torch.int32)
 
     model.eval()
     with torch.no_grad():
-        
-        # FLOPs analysis
-        images, _, _ = next(iter(valloader))
-        images = images.to(device)
-        flops = FlopCountAnalysis(model, images)
-        flops_count = flop_count_table(flops)
 
         # Testing
         for i, (images, masks, _) in enumerate(valloader):
             images, masks = images.to(device), masks.to(device)
 
-            start_time = time.perf_counter()
             logits = model(images)
-            end_time = time.perf_counter()
 
             h, w = masks.size(1), masks.size(2)
             ph, pw = logits.size(1), logits.size(2)
             if ph != h or pw != w:
                 logits = F.interpolate(logits, size=(h, w), mode='bilinear', align_corners=False)
-
-
-            batch_inference_time = (end_time - start_time) / images.size(0)
-            inference_times.append(batch_inference_time)
 
             predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
             
@@ -1344,18 +1330,11 @@ def test(model_name, model, valloader, device, monitor):
 
     monitor.stop()
 
-    mean_inference_time = np.mean(inference_times)
-    std_inference_time = np.std(inference_times)
-
     final_class_iou = cumulative_class_iou / class_count.clamp(min=1)
 
-    monitor.log(f"Model parameters and FLOPs:\n{flops_count}\n")
     monitor.log(f"Mean Intersection over Union on test images: {test_mIoU*100:.3f} %")
     for label in LoveDADatasetLabel:
         monitor.log(f"\t{label.name} IoU: {final_class_iou[label.value]*100:.3f} %")
-    monitor.log(f"")
-    monitor.log(f"Mean inference time: {mean_inference_time * 1000:.3f} ms")
-    monitor.log(f"Standard deviation of inference time: {std_inference_time * 1000:.3f} ms")
 
 
 
@@ -1521,7 +1500,6 @@ def main():
         log_testing_setup(device, args, test_monitor)
 
         test(
-            model_name=args.model_name,
             model=model,
             valloader=valloader,
             device=device,
