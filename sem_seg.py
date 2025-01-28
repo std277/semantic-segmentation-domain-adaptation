@@ -452,6 +452,7 @@ def dataset_preprocessing(domain, batch_size, data_augmentation, args):
         ])
     else:
         transform = Compose([
+            Resize(512, 512),
             Normalize(mean=MEAN, std=STD, always_apply=True),
             ToTensorV2()
         ])

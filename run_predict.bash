@@ -16,8 +16,16 @@ python3 sem_seg.py \
     --model_name PIDNet_S \
     --version 6 \
     --model_file best_0.pt \
-    --target_domain Rural
+    --target_domain Urban
 
+
+# Predict PIDNet_M
+# python3 sem_seg.py \
+#     --predict \
+#     --model_name PIDNet_M \
+#     --version 1 \
+#     --model_file best_0.pt \
+#     --target_domain Rural
 
 
 # Predict PIDNet_S_Adversarial
