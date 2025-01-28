@@ -1177,7 +1177,7 @@ def main():
 
         trainloader, valloader, _ = dataset_preprocessing(
             domain=args.target_domain,
-            batch_size=args.batch_size,
+            batch_size=1,
             data_augmentation=False,
             args=args
         )
