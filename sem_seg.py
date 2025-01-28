@@ -970,126 +970,19 @@ def train_pidnet(model, model_number, trainloader, valloader, criterion, bd_crit
 
 
 
-
-
-def test(model_name, model, valloader, device, monitor):
-    monitor.start(desc=f"Testing", max_progress=len(valloader))
-
-    flops_count = 0
-    cumulative_mIoU = 0.0
-    count = 0
-    test_mIoU = 0.0
-    inference_times = []
-
-    cumulative_class_iou = torch.zeros(NUM_CLASSES, dtype=torch.float32)
-    class_count = torch.zeros(NUM_CLASSES, dtype=torch.int32)
-
+def test_flops(model, device, monitor):
     model.eval()
+    input = torch.randn(1, 3, 512, 512).to(device)
     with torch.no_grad():
-        
-        # FLOPs analysis
-        images, _, _ = next(iter(valloader))
-        images = images.to(device)
-        flops = FlopCountAnalysis(model, images)
+        flops = FlopCountAnalysis(model, input)
         flops_count = flop_count_table(flops)
 
-        # Testing
-        for i, (images, masks, _) in enumerate(valloader):
-            images, masks = images.to(device), masks.to(device)
-
-            if model_name in ("DeepLabV2_ResNet101",):
-                start_time = time.perf_counter()
-                logits = model(images)
-                end_time = time.perf_counter()
-            elif model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
-                start_time = time.perf_counter()
-                logits = model(images)
-                end_time = time.perf_counter()
-
-                h, w = masks.size(1), masks.size(2)
-                ph, pw = logits.size(1), logits.size(2)
-                if ph != h or pw != w:
-                    logits = F.interpolate(logits, size=(h, w), mode='bilinear', align_corners=False)
-
-            batch_inference_time = (end_time - start_time) / images.size(0)
-            inference_times.append(batch_inference_time)
-
-            predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
-            
-            count += 1
-
-            mIoU, class_iou = compute_mIoU(predictions, masks, NUM_CLASSES)
-
-            valid_class_mask = ~torch.isnan(class_iou)
-            cumulative_class_iou[valid_class_mask] += class_iou[valid_class_mask]
-            class_count[valid_class_mask] += 1
-
-            
-            cumulative_mIoU += mIoU
-            test_mIoU = cumulative_mIoU / count
-            
-            monitor.update(
-                i + 1,
-                test_mIoU=f"{test_mIoU:.4f}",
-            )
-
-    monitor.stop()
-
-    mean_inference_time = np.mean(inference_times)
-    std_inference_time = np.std(inference_times)
-
-    final_class_iou = cumulative_class_iou / class_count.clamp(min=1)
-
     monitor.log(f"Model parameters and FLOPs:\n{flops_count}\n")
-    monitor.log(f"Mean Intersection over Union on test images: {test_mIoU*100:.3f} %")
-    for label in LoveDADatasetLabel:
-        monitor.log(f"\t{label.name} IoU: {final_class_iou[label.value]*100:.3f} %")
-    monitor.log(f"")
-    monitor.log(f"Mean inference time: {mean_inference_time * 1000:.3f} ms")
-    monitor.log(f"Standard deviation of inference time: {std_inference_time * 1000:.3f} ms")
-
-
-
-
-
-def predict(model_name, model, valloader, device):
-    model.eval()
-    with torch.no_grad():
-
-        # Predicting
-        for i, (images, masks, _) in enumerate(valloader):
-            images, masks = images.to(device), masks.to(device)
-
-            if model_name in ("DeepLabV2_ResNet101",):
-                logits = model(images)
-            elif model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
-                logits = model(images)
-                h, w = masks.size(1), masks.size(2)
-                ph, pw = logits.size(1), logits.size(2)
-                if ph != h or pw != w:
-                    logits = F.interpolate(logits, size=(h, w), mode='bilinear', align_corners=False)
-
-            predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
-            
-            mIoU, iou_per_class = compute_mIoU(predictions, masks, NUM_CLASSES)
-
-            iou_per_class_str = ""
-            for label in LoveDADatasetLabel:
-                iou_per_class_str += f"{label.name}: {iou_per_class[label.value]*100:.3f} %\n"            
-
-            plot_prediction(images[0], masks[0], predictions[0], alpha=0.4, title="Prediction", description=f"Mean Intersection over Union: {mIoU*100:.3f} %\n\n{iou_per_class_str}")
-
-            
-
-
 
 
 def test_inference_time(model, device, monitor):
-    monitor.log(f"Speed testing")
-
     model.eval()
     iterations = None
-    
     input = torch.randn(1, 3, 512, 512).to(device)
     with torch.no_grad():
         for _ in range(10):
@@ -1128,6 +1021,93 @@ def test_inference_time(model, device, monitor):
     monitor.log(f"Mean FPS: {fps:.3f} frames/s")
 
 
+def test(model_name, model, valloader, device, monitor):
+    monitor.start(desc=f"Testing", max_progress=len(valloader))
+
+    cumulative_mIoU = 0.0
+    count = 0
+    test_mIoU = 0.0
+
+    cumulative_class_iou = torch.zeros(NUM_CLASSES, dtype=torch.float32)
+    class_count = torch.zeros(NUM_CLASSES, dtype=torch.int32)
+
+    model.eval()
+    with torch.no_grad():
+        # Testing
+        for i, (images, masks, _) in enumerate(valloader):
+            images, masks = images.to(device), masks.to(device)
+
+            if model_name in ("DeepLabV2_ResNet101",):
+                logits = model(images)
+            elif model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
+                logits = model(images)
+                h, w = masks.size(1), masks.size(2)
+                ph, pw = logits.size(1), logits.size(2)
+                if ph != h or pw != w:
+                    logits = F.interpolate(logits, size=(h, w), mode='bilinear', align_corners=False)
+
+            predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
+            
+            count += 1
+
+            mIoU, class_iou = compute_mIoU(predictions, masks, NUM_CLASSES)
+
+            valid_class_mask = ~torch.isnan(class_iou)
+            cumulative_class_iou[valid_class_mask] += class_iou[valid_class_mask]
+            class_count[valid_class_mask] += 1
+
+            
+            cumulative_mIoU += mIoU
+            test_mIoU = cumulative_mIoU / count
+            
+            monitor.update(
+                i + 1,
+                test_mIoU=f"{test_mIoU:.4f}",
+            )
+
+    monitor.stop()
+
+    final_class_iou = cumulative_class_iou / class_count.clamp(min=1)
+
+    monitor.log(f"Mean Intersection over Union on test images: {test_mIoU*100:.3f} %")
+    for label in LoveDADatasetLabel:
+        monitor.log(f"\t{label.name} IoU: {final_class_iou[label.value]*100:.3f} %")
+    monitor.log(f"")
+
+
+
+
+
+
+
+def predict(model_name, model, valloader, device):
+    model.eval()
+    with torch.no_grad():
+
+        # Predicting
+        for i, (images, masks, _) in enumerate(valloader):
+            images, masks = images.to(device), masks.to(device)
+
+            if model_name in ("DeepLabV2_ResNet101",):
+                logits = model(images)
+            elif model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
+                logits = model(images)
+                h, w = masks.size(1), masks.size(2)
+                ph, pw = logits.size(1), logits.size(2)
+                if ph != h or pw != w:
+                    logits = F.interpolate(logits, size=(h, w), mode='bilinear', align_corners=False)
+
+            predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
+            
+            mIoU, iou_per_class = compute_mIoU(predictions, masks, NUM_CLASSES)
+
+            iou_per_class_str = ""
+            for label in LoveDADatasetLabel:
+                iou_per_class_str += f"{label.name}: {iou_per_class[label.value]*100:.3f} %\n"            
+
+            plot_prediction(images[0], masks[0], predictions[0], alpha=0.4, title="Prediction", description=f"Mean Intersection over Union: {mIoU*100:.3f} %\n\n{iou_per_class_str}")
+
+            
 
 
 
@@ -1226,6 +1206,12 @@ def main():
         model = load_model(model, f"{res_dir}/weights/{args.model_file}", device)
 
         log_testing_setup(device, args, test_monitor)
+
+        test_flops(
+            model=model,
+            device=device,
+            monitor=test_monitor
+        )
 
         test(
             model_name=args.model_name,
