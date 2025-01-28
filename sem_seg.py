@@ -452,7 +452,6 @@ def dataset_preprocessing(domain, batch_size, data_augmentation, args):
         ])
     else:
         transform = Compose([
-            Resize(512, 512),
             Normalize(mean=MEAN, std=STD, always_apply=True),
             ToTensorV2()
         ])
@@ -1000,11 +999,11 @@ def test(model_name, model, valloader, device, monitor):
 
             if model_name in ("DeepLabV2_ResNet101",):
                 start_time = time.perf_counter()
-                logits = model(images[0])
+                logits = model(images)
                 end_time = time.perf_counter()
             elif model_name in ("PIDNet_S", "PIDNet_M", "PIDNet_L"):
                 start_time = time.perf_counter()
-                logits = model(images[0])
+                logits = model(images)
                 end_time = time.perf_counter()
 
                 h, w = masks.size(1), masks.size(2)
@@ -1012,7 +1011,7 @@ def test(model_name, model, valloader, device, monitor):
                 if ph != h or pw != w:
                     logits = F.interpolate(logits, size=(h, w), mode='bilinear', align_corners=False)
 
-            batch_inference_time = (end_time - start_time) # / images.size(0)
+            batch_inference_time = (end_time - start_time) / images.size(0)
             inference_times.append(batch_inference_time)
 
             predictions = torch.argmax(torch.softmax(logits, dim=1), dim=1)
@@ -1085,7 +1084,48 @@ def predict(model_name, model, valloader, device):
 
 
 
+def test_inference_time(model, device, monitor):
+    monitor.log(f"Speed testing")
 
+    model.eval()
+    iterations = None
+    
+    input = torch.randn(1, 3, 512, 512).to(device)
+    with torch.no_grad():
+        for _ in range(10):
+            model(input)
+    
+        if iterations is None:
+            elapsed_time = 0
+            iterations = 100
+            while elapsed_time < 1:
+                torch.cuda.synchronize()
+                torch.cuda.synchronize()
+                t_start = time.time()
+                for _ in range(iterations):
+                    model(input)
+                torch.cuda.synchronize()
+                torch.cuda.synchronize()
+                elapsed_time = time.time() - t_start
+                iterations *= 2
+            fps = iterations / elapsed_time
+            iterations = int(fps * 6)
+    
+        # Speed Testing
+        torch.cuda.synchronize()
+        torch.cuda.synchronize()
+        t_start = time.time()
+        for _ in range(iterations):
+            model(input)
+        torch.cuda.synchronize()
+        torch.cuda.synchronize()
+        elapsed_time = time.time() - t_start
+        latency = elapsed_time / iterations * 1000
+    torch.cuda.empty_cache()
+    fps = 1000 / latency
+
+    monitor.log(f"Mean inference time: {latency:.3f} ms")
+    monitor.log(f"Mean FPS: {fps:.3f} frames/s")
 
 
 
@@ -1177,7 +1217,7 @@ def main():
 
         trainloader, valloader, _ = dataset_preprocessing(
             domain=args.target_domain,
-            batch_size=1,
+            batch_size=args.batch_size,
             data_augmentation=False,
             args=args
         )
@@ -1191,6 +1231,12 @@ def main():
             model_name=args.model_name,
             model=model,
             valloader=valloader,
+            device=device,
+            monitor=test_monitor
+        )
+
+        test_inference_time(
+            model=model,
             device=device,
             monitor=test_monitor
         )
