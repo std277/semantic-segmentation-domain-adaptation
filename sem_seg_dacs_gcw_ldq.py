@@ -231,6 +231,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--beta",
+        type=float,
+        default=0.9,
+        help=f"Mixing parameter controlling the influence ofprevious weights in Gradual Class Weight.",
+    )
+
+    parser.add_argument(
         "--ldq",
         action="store_true",
         help="Add Local Dynamic Quality for target pseudo masks."
@@ -803,7 +810,7 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
                 pixel_wise_weights = None
 
                 if args.gcw:
-                    pixel_wise_weights, gradual_class_weights = get_dynamic_class_weight(gradual_class_weights, src_masks, NUM_CLASSES, T=args.temperature)
+                    pixel_wise_weights, gradual_class_weights = get_dynamic_class_weight(gradual_class_weights, src_masks, NUM_CLASSES, T=args.temperature, alpha=args.beta)
                     class_weights_iter_history.append(gradual_class_weights.squeeze().tolist())
 
                 loss_sb = criterion(src_logits[-2], bd_label, pixel_wise_weights = pixel_wise_weights)
@@ -832,7 +839,7 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
 
                 pixel_wise_weights = None
                 if args.gcw:
-                    pixel_wise_weights, gradual_class_weights = get_dynamic_class_weight(gradual_class_weights, src_masks, NUM_CLASSES, T=args.temperature)
+                    pixel_wise_weights, gradual_class_weights = get_dynamic_class_weight(gradual_class_weights, src_masks, NUM_CLASSES, T=args.temperature, alpha=args.beta)
                     class_weights_iter_history.append(gradual_class_weights.squeeze().tolist())
                 
                 loss_sb = criterion(src_logits[-2], bd_label, pixel_wise_weights = pixel_wise_weights)
