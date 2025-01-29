@@ -223,6 +223,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--temperature",
+        type=float,
+        default=0.1,
+        help=f"Specify temperature parameter for Gradual Class Weight.",
+    )
+
+    parser.add_argument(
         "--ldq",
         action="store_true",
         help="Add Local Dynamic Quality for target pseudo masks."
@@ -379,6 +386,7 @@ def log_training_setup(device, args, monitor):
     monitor.log(f"Model: {args.model_name} DACS with GCW and LDQ")
 
     monitor.log(f"GCW: {args.gcw}")
+    monitor.log(f"T: {args.temperature}")
     monitor.log(f"LDQ: {args.ldq}")
 
     monitor.log(f"Device: {device}")
@@ -794,7 +802,7 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
                 pixel_wise_weights = None
 
                 if args.gcw:
-                    pixel_wise_weights, gradual_class_weights = get_dynamic_class_weight(gradual_class_weights, src_masks, NUM_CLASSES)
+                    pixel_wise_weights, gradual_class_weights = get_dynamic_class_weight(gradual_class_weights, src_masks, NUM_CLASSES, T=args.temperature)
                     class_weights_iter_history.append(gradual_class_weights.squeeze().tolist())
 
                 loss_sb = criterion(src_logits[-2], bd_label, pixel_wise_weights = pixel_wise_weights)
@@ -823,7 +831,7 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
 
                 pixel_wise_weights = None
                 if args.gcw:
-                    pixel_wise_weights, gradual_class_weights = get_dynamic_class_weight(gradual_class_weights, src_masks, NUM_CLASSES)
+                    pixel_wise_weights, gradual_class_weights = get_dynamic_class_weight(gradual_class_weights, src_masks, NUM_CLASSES, T=args.temperature)
                     class_weights_iter_history.append(gradual_class_weights.squeeze().tolist())
                 
                 loss_sb = criterion(src_logits[-2], bd_label, pixel_wise_weights = pixel_wise_weights)
