@@ -1,6 +1,7 @@
 import argparse
 import os
 import re
+import pickle
 
 import random
 
@@ -313,7 +314,7 @@ def make_results_dir(store, model_name, version, resume):
 
     res_dir = f"{res_dir}/{dir_name}"
     if not resume:
-        sub_dirs = [res_dir, f"{res_dir}/weights", f"{res_dir}/plots"]
+        sub_dirs = [res_dir, f"{res_dir}/weights", f"{res_dir}/plots", f"{res_dir}/data"]
         for sub_dir in sub_dirs:
             os.makedirs(sub_dir, exist_ok=True)
 
@@ -1148,13 +1149,14 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
             res_dir=res_dir,
             file_name=f"learning_rate_{model_number}"
         )
-        monitor.log(class_weights_iter_history)
-        monitor.log(class_weights_epoch_history)
+
+        with open(f"{res_dir}/data/class_weights_iter_history.pkl", "wb") as f:
+            pickle.dump(class_weights_iter_history, f)
+        
+        with open(f"{res_dir}/data/class_weights_epoch_history.pkl", "wb") as f:
+            pickle.dump(class_weights_epoch_history, f)
 
     monitor.print_stats()
-
-    monitor.log(class_weights_iter_history)
-    monitor.log(class_weights_epoch_history)
 
 
 
