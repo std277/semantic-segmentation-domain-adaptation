@@ -20,6 +20,7 @@ from torch.amp import GradScaler, autocast
 
 from albumentations import Compose, Resize, Normalize, HorizontalFlip, VerticalFlip, RandomRotate90, ShiftScaleRotate, RandomBrightnessContrast, CoarseDropout, GridDistortion, ColorJitter, GaussianBlur, RandomCrop, PadIfNeeded,GaussNoise, ToGray, CLAHE, Sharpen, RandomGamma
 from albumentations.pytorch import ToTensorV2
+from augmentations import FourierDomainAdaptation
 
 from fvcore.nn import FlopCountAnalysis, flop_count_table
 
@@ -217,7 +218,12 @@ def parse_args():
         help="Performs random gamma data augmentation on dataset."
     )
 
-    
+    parser.add_argument(
+    "--fourier_augmentation",
+    action="store_true",
+    help="Performs Fourier domain adaptation augmentation on dataset."
+    )
+
     parser.add_argument(
         "--batch_size",
         type=int,
@@ -412,7 +418,7 @@ def log_training_setup(device, args, monitor):
 
     monitor.log(f"Dataset source domain: {args.source_domain}")
     
-    data_augmentation = args.horizontal_flip_augmentation or args.shift_scale_rotate_augmentation or args.brightness_contrast_augmentation or args.coarse_dropout_augmentation or args.grid_distortion_augmentation or args.color_jitter_augmentation or args.gaussian_blur_augmentation or args.gaussian_noise_augmentation or args.grayscale_augmentation or args.clahe_augmentation or args.sharpen_augmentation or args.random_gamma_augmentation
+    data_augmentation = args.horizontal_flip_augmentation or args.shift_scale_rotate_augmentation or args.brightness_contrast_augmentation or args.coarse_dropout_augmentation or args.grid_distortion_augmentation or args.color_jitter_augmentation or args.gaussian_blur_augmentation or args.gaussian_noise_augmentation or args.grayscale_augmentation or args.clahe_augmentation or args.sharpen_augmentation or args.random_gamma_augmentation or args.fourier_augmentation
 
 
     monitor.log(f"Data augmentation: {data_augmentation}")
@@ -442,6 +448,8 @@ def log_training_setup(device, args, monitor):
         monitor.log("- Sharpen(alpha=(0.2, 0.5), lightness=(0.5, 1.0), p=0.5)")
     if args.random_gamma_augmentation:
         monitor.log("- RandomGamma(gamma_limit=(80, 120), p=0.5)") 
+    if args.fourier_augmentation:
+        monitor.log("- FourierDomainAdaptation(alpha=0.1, p=0.5)")
             
 
     monitor.log(f"Batch size: {args.batch_size}\n")
@@ -481,7 +489,6 @@ def log_testing_setup(device, args, monitor):
         device_name = torch.cuda.get_device_name(torch.cuda.current_device())
         monitor.log(f"Cuda device name: {device_name}")
     monitor.log(f"Dataset target domain: {args.target_domain}\n")
-
 
 
 def dataset_preprocessing(domain, batch_size, data_augmentation, args):
@@ -540,6 +547,9 @@ def dataset_preprocessing(domain, batch_size, data_augmentation, args):
             train_transform_list.append(Sharpen(alpha=(0.2, 0.5), lightness=(0.5, 1.0), p=0.5))
         if args.random_gamma_augmentation:
             train_transform_list.append(RandomGamma(gamma_limit=(80, 120), p=0.5))
+        if args.fourier_augmentation:
+            train_transform_list.append(FourierDomainAdaptation(alpha=0.1, p=0.5))
+
 
 
         train_transform_list.append(ToTensorV2())
