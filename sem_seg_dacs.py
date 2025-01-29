@@ -19,8 +19,9 @@ from torch.optim.lr_scheduler import LambdaLR, StepLR, CosineAnnealingLR
 from torch.backends import cudnn
 from torch.amp import GradScaler, autocast
 
-from albumentations import Compose, Resize, Normalize, HorizontalFlip, VerticalFlip, RandomRotate90, ShiftScaleRotate, RandomBrightnessContrast, CoarseDropout, GridDistortion, GaussianBlur, ColorJitter, RandomCrop, PadIfNeeded
+from albumentations import Compose, Resize, Normalize, HorizontalFlip, VerticalFlip, RandomRotate90, ShiftScaleRotate, RandomBrightnessContrast, CoarseDropout, GridDistortion, GaussianBlur, ColorJitter, RandomCrop, PadIfNeeded, GaussNoise, ToGray, CLAHE, Sharpen, RandomGamma, RandomSizedCrop, RandomResizedCrop, Center
 from albumentations.pytorch import ToTensorV2
+from augmentations import FourierDomainAdaptation
 
 from fvcore.nn import FlopCountAnalysis, flop_count_table
 
@@ -172,6 +173,42 @@ def parse_args():
         "--random_crop_augmentation",
         action="store_true",
         help="Performs random crop data augmentation on dataset."
+    )
+
+    parser.add_argument(
+        "--gaussian_noise_augmentation",
+        action="store_true",
+        help="Performs gaussian noise data augmentation on dataset."
+    )
+
+    parser.add_argument(
+        "--grayscale_augmentation",
+        action="store_true",
+        help="Performs grayscale data augmentation on dataset."
+    )
+
+    parser.add_argument(
+        "--clahe_augmentation",
+        action="store_true",
+        help="Performs CLAHE data augmentation on dataset."
+    )
+    
+    parser.add_argument(
+        "--sharpen_augmentation",
+        action="store_true",
+        help="Performs sharpen data augmentation on dataset."
+    )
+
+    parser.add_argument(
+        "--random_gamma_augmentation",
+        action="store_true",
+        help="Performs random gamma data augmentation on dataset."
+    )
+
+    parser.add_argument(
+    "--fourier_augmentation",
+    action="store_true",
+    help="Performs Fourier domain adaptation augmentation on dataset."
     )
 
     parser.add_argument(
@@ -353,7 +390,7 @@ def log_training_setup(device, args, monitor):
     monitor.log(f"Dataset source domain: Urban")
     monitor.log(f"Dataset target domain: Rural")
 
-    data_augmentation = args.horizontal_flip_augmentation or args.shift_scale_rotate_augmentation or args.brightness_contrast_augmentation or args.coarse_dropout_augmentation or args.grid_distortion_augmentation or args.color_jitter_augmentation or args.gaussian_blur_augmentation
+    data_augmentation = args.horizontal_flip_augmentation or args.shift_scale_rotate_augmentation or args.brightness_contrast_augmentation or args.coarse_dropout_augmentation or args.grid_distortion_augmentation or args.color_jitter_augmentation or args.gaussian_blur_augmentation or args.gaussian_noise_augmentation or args.grayscale_augmentation or args.clahe_augmentation or args.sharpen_augmentation or args.random_gamma_augmentation or args.fourier_augmentation
 
     monitor.log(f"Data augmentation: {data_augmentation}")
     if args.horizontal_flip_augmentation:
@@ -372,6 +409,18 @@ def log_training_setup(device, args, monitor):
         monitor.log("- GaussianBlur(blur_limit=(3, 7), p=0.5)")
     if args.random_crop_augmentation:
         monitor.log("- RandomCrop(width=512, height=512, p=1.0)")
+    if args.gaussian_noise_augmentation:
+        monitor.log("- GaussNoise(var_limit=(10.0, 50.0), p=0.5)")
+    if args.grayscale_augmentation:
+        monitor.log("- ToGray(p=0.2)")
+    if args.clahe_augmentation:
+        monitor.log("- CLAHE(clip_limit=4.0, tile_grid_size=(8, 8), p=0.5)")
+    if args.sharpen_augmentation:
+        monitor.log("- Sharpen(alpha=(0.2, 0.5), lightness=(0.5, 1.0), p=0.5)")
+    if args.random_gamma_augmentation:
+        monitor.log("- RandomGamma(gamma_limit=(80, 120), p=0.5)") 
+    if args.fourier_augmentation:
+        monitor.log("- FourierDomainAdaptation(alpha=0.1, p=0.5)")
 
     monitor.log(f"Batch size: {args.batch_size}\n")
 
@@ -454,6 +503,18 @@ def get_transform(args):
     #         RandomCrop(width=720, height=720, p=0.5),
     #         PadIfNeeded(min_width=1024, min_height=1024, fill=(0, 0, 0), fill_mask=255)
     #     ]))
+    if args.gaussian_noise_augmentation:
+        transform_list.append(GaussNoise(var_limit=(10.0, 50.0), p=0.5))
+    if args.grayscale_augmentation:
+        transform_list.append(ToGray(p=0.2))
+    if args.clahe_augmentation:
+        transform_list.append(CLAHE(clip_limit=4.0, tile_grid_size=(8, 8), p=0.5))
+    if args.sharpen_augmentation:
+        transform_list.append(Sharpen(alpha=(0.2, 0.5), lightness=(0.5, 1.0), p=0.5))
+    if args.random_gamma_augmentation:
+        transform_list.append(RandomGamma(gamma_limit=(80, 120), p=0.5))
+    if args.fourier_augmentation:
+        transform_list.append(FourierDomainAdaptation(alpha=0.1, p=0.5))
 
     transform_list.append(ToTensorV2())
 
