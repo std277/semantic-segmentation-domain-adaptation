@@ -715,6 +715,9 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
     best_val_mIoU = None
     patience_counter = 0
 
+    class_weights_iter_history = []
+    class_weights_epoch_history = []
+
     # initialize dynamic GCW vector
     gradual_class_weights = None
     # initialize LDQ kernel
@@ -792,6 +795,7 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
 
                 if args.gcw:
                     pixel_wise_weights, gradual_class_weights = get_dynamic_class_weight(gradual_class_weights, src_masks, NUM_CLASSES)
+                    class_weights_iter_history.append(gradual_class_weights.squeeze().tolist())
 
                 loss_sb = criterion(src_logits[-2], bd_label, pixel_wise_weights = pixel_wise_weights)
                 
@@ -820,6 +824,7 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
                 pixel_wise_weights = None
                 if args.gcw:
                     pixel_wise_weights, gradual_class_weights = get_dynamic_class_weight(gradual_class_weights, src_masks, NUM_CLASSES)
+                    class_weights_iter_history.append(gradual_class_weights.squeeze().tolist())
                 
                 loss_sb = criterion(src_logits[-2], bd_label, pixel_wise_weights = pixel_wise_weights)
                 
@@ -991,6 +996,8 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
         train_losses = [a + b for a, b in zip(train_losses_labeled, train_losses_unlabeled)]
         train_mIoUs.append(train_mIoU)
 
+        class_weights_epoch_history.append(gradual_class_weights.squeeze().tolist())
+
         monitor.stop()
 
 
@@ -1133,8 +1140,13 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
             res_dir=res_dir,
             file_name=f"learning_rate_{model_number}"
         )
+        monitor.log(class_weights_iter_history)
+        monitor.log(class_weights_epoch_history)
 
     monitor.print_stats()
+
+    monitor.log(class_weights_iter_history)
+    monitor.log(class_weights_epoch_history)
 
 
 
