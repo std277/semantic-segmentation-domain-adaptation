@@ -274,7 +274,7 @@ def make_results_dir(store, model_name, version, resume):
 
     res_dir = f"{res_dir}/{dir_name}"
     if not resume:
-        sub_dirs = [res_dir, f"{res_dir}/weights", f"{res_dir}/plots"]
+        sub_dirs = [res_dir, f"{res_dir}/weights", f"{res_dir}/plots", f"{res_dir}/data"]
         for sub_dir in sub_dirs:
             os.makedirs(sub_dir, exist_ok=True)
 

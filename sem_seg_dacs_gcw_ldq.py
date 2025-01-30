@@ -1,6 +1,7 @@
 import argparse
 import os
 import re
+import pickle
 
 import random
 
@@ -223,6 +224,20 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--temperature",
+        type=float,
+        default=0.1,
+        help=f"Specify temperature parameter for Gradual Class Weight.",
+    )
+
+    parser.add_argument(
+        "--beta",
+        type=float,
+        default=0.9,
+        help=f"Mixing parameter controlling the influence ofprevious weights in Gradual Class Weight.",
+    )
+
+    parser.add_argument(
         "--ldq",
         action="store_true",
         help="Add Local Dynamic Quality for target pseudo masks."
@@ -306,7 +321,7 @@ def make_results_dir(store, model_name, version, resume):
 
     res_dir = f"{res_dir}/{dir_name}"
     if not resume:
-        sub_dirs = [res_dir, f"{res_dir}/weights", f"{res_dir}/plots"]
+        sub_dirs = [res_dir, f"{res_dir}/weights", f"{res_dir}/plots", f"{res_dir}/data"]
         for sub_dir in sub_dirs:
             os.makedirs(sub_dir, exist_ok=True)
 
@@ -379,6 +394,7 @@ def log_training_setup(device, args, monitor):
     monitor.log(f"Model: {args.model_name} DACS with GCW and LDQ")
 
     monitor.log(f"GCW: {args.gcw}")
+    monitor.log(f"T: {args.temperature}")
     monitor.log(f"LDQ: {args.ldq}")
 
     monitor.log(f"Device: {device}")
@@ -715,6 +731,9 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
     best_val_mIoU = None
     patience_counter = 0
 
+    class_weights_iter_history = []
+    class_weights_epoch_history = []
+
     # initialize dynamic GCW vector
     gradual_class_weights = None
     # initialize LDQ kernel
@@ -791,7 +810,8 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
                 pixel_wise_weights = None
 
                 if args.gcw:
-                    pixel_wise_weights, gradual_class_weights = get_dynamic_class_weight(gradual_class_weights, src_masks, NUM_CLASSES)
+                    pixel_wise_weights, gradual_class_weights = get_dynamic_class_weight(gradual_class_weights, src_masks, NUM_CLASSES, T=args.temperature, alpha=args.beta)
+                    class_weights_iter_history.append(gradual_class_weights.squeeze().tolist())
 
                 loss_sb = criterion(src_logits[-2], bd_label, pixel_wise_weights = pixel_wise_weights)
                 
@@ -819,7 +839,8 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
 
                 pixel_wise_weights = None
                 if args.gcw:
-                    pixel_wise_weights, gradual_class_weights = get_dynamic_class_weight(gradual_class_weights, src_masks, NUM_CLASSES)
+                    pixel_wise_weights, gradual_class_weights = get_dynamic_class_weight(gradual_class_weights, src_masks, NUM_CLASSES, T=args.temperature, alpha=args.beta)
+                    class_weights_iter_history.append(gradual_class_weights.squeeze().tolist())
                 
                 loss_sb = criterion(src_logits[-2], bd_label, pixel_wise_weights = pixel_wise_weights)
                 
@@ -991,6 +1012,8 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
         train_losses = [a + b for a, b in zip(train_losses_labeled, train_losses_unlabeled)]
         train_mIoUs.append(train_mIoU)
 
+        class_weights_epoch_history.append(gradual_class_weights.squeeze().tolist())
+
         monitor.stop()
 
 
@@ -1133,6 +1156,12 @@ def train(model, ema_model, model_number, src_trainloader, trg_trainloader, src_
             res_dir=res_dir,
             file_name=f"learning_rate_{model_number}"
         )
+
+        with open(f"{res_dir}/data/class_weights_iter_history.pkl", "wb") as f:
+            pickle.dump(class_weights_iter_history, f)
+        
+        with open(f"{res_dir}/data/class_weights_epoch_history.pkl", "wb") as f:
+            pickle.dump(class_weights_epoch_history, f)
 
     monitor.print_stats()
 
