@@ -206,9 +206,9 @@ def parse_args():
     )
 
     parser.add_argument(
-    "--fourier_augmentation",
-    action="store_true",
-    help="Performs Fourier domain adaptation augmentation on dataset."
+        "--fourier_augmentation",
+        action="store_true",
+        help="Performs Fourier domain adaptation augmentation on dataset."
     )
 
     parser.add_argument(
