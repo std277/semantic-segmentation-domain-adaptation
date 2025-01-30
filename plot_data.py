@@ -22,16 +22,20 @@ def plot(X, Y0, Y1=None, title="Plot", xlabel="X", ylabel="Y", label0="False", l
 
 
     if isinstance(Y0, list) and all(not isinstance(x, list) for x in Y0):           # Y contain single lists
-        plt.plot(X, Y0, marker='.', label=label0, color='blue', linewidth=1.6)
+        plt.plot(X, Y0, label=label0, color='blue', linewidth=1.8)
+        # plt.plot(X, Y0, marker='.', label=label0, color='blue', linewidth=1.6)
         if Y1:
-            plt.plot(X, Y1, marker='.', label=label1, color='orange', linewidth=1.6)
+            plt.plot(X, Y1, label=label1, color='orange', linewidth=1.8)
+            # plt.plot(X, Y1, marker='.', label=label1, color='orange', linewidth=1.6)
         plt.legend(fontsize=12)
     else:                                                                           # Y contain many lists to be compared
         colors = plt.cm.plasma(np.linspace(0, 1, len(Y0)))
         for i in range(len(Y0)):
-            plt.plot(X, Y0[i], marker='.', label=label0[i], color=colors[i], linewidth=1.6)
+            plt.plot(X, Y0[i], label=label0[i], color=colors[i], linewidth=1.8)
+            # plt.plot(X, Y0[i], marker='.', label=label0[i], color=colors[i], linewidth=1.6)
             if Y1:
-                plt.plot(X, Y1[i], marker='.', label=label1[i], color=colors[i], linestyle='--', linewidth=1.3)
+                plt.plot(X, Y1[i], label=label1[i], color=colors[i], linestyle='--', linewidth=1.3)
+                # plt.plot(X, Y1[i], marker='.', label=label1[i], color=colors[i], linestyle='--', linewidth=1.3)
         plt.legend(fontsize=8)
 
     plt.tight_layout()
@@ -93,7 +97,7 @@ if __name__ == "__main__":
     
 
 
-    VERSION = 8
+    VERSION = 10
 
     # GCW iteration weights plot
 
@@ -114,14 +118,14 @@ if __name__ == "__main__":
 
     # GCW epoch weights plot
 
-    with open(f"res/PIDNet_S_DACS_GCW_LDQ_{VERSION}/data/class_weights_epoch_history.pkl", "rb") as f:
-        class_weights_epoch_history = pickle.load(f)
+    # with open(f"res/PIDNet_S_DACS_GCW_LDQ_{VERSION}/data/class_weights_epoch_history.pkl", "rb") as f:
+    #     class_weights_epoch_history = pickle.load(f)
 
-    class_weights_epoch_history = np.array(class_weights_epoch_history).T
+    # class_weights_epoch_history = np.array(class_weights_epoch_history).T
 
-    X = [i+1 for i in range(class_weights_epoch_history.shape[1])]
+    # X = [i+1 for i in range(class_weights_epoch_history.shape[1])]
 
-    labels = ["BACKGROUND", "BUILDING", "ROAD", "WATER", "BARREN", "FOREST", "AGRICULTURE"]
+    # labels = ["BACKGROUND", "BUILDING", "ROAD", "WATER", "BARREN", "FOREST", "AGRICULTURE"]
 
 
-    plot(X, class_weights_epoch_history, title="Gradual Class Weights comparison on different classes", xlabel="Epoch", ylabel="GCW", label0=labels, save_disk=True, output_dir="./plots", output_name="GCW_epoch_hist")
+    # plot(X, class_weights_epoch_history, title="Gradual Class Weights comparison on different classes", xlabel="Epoch", ylabel="GCW", label0=labels, save_disk=True, output_dir="./plots", output_name="GCW_epoch_hist")
